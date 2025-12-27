@@ -1,17 +1,15 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] vFinal 5.0 - Binds & Security Fixed");
+    console.log("[ECLIPSE] vFinal 6.0 - Manual Injection (Safe Mode)");
 
     // =================================================================
     // 1. CONFIGURAÇÕES & VARIÁVEIS
     // =================================================================
-    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/"; // Segurança da Skin
     
     // Variáveis de Teclas (Padrão)
     let KEY_CLIP = 'KeyC'; 
     let KEY_CLIP_ALT = true; // Requer Alt?
-    let KEY_MENU = 'Click UI'; // Apenas visual, o menu abre no botão do ecrã
 
     // Variáveis de Sistema
     window.eclipse_showLines = true;
@@ -31,7 +29,7 @@
     let recorders = [{ id: 0, rec: null, chunks: [], startTime: 0, timer: null }, { id: 1, rec: null, chunks: [], startTime: 0, timer: null }];
 
     // =================================================================
-    // 2. ESTILO VISUAL (CSS) - LAYOUT CORRIGIDO
+    // 2. ESTILO VISUAL (CSS)
     // =================================================================
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
@@ -59,7 +57,6 @@
         .e-input { width: 100%; background: #050507; border: 1px solid #222; padding: 15px; border-radius: 12px; color: white; margin-bottom: 20px; font-family: inherit; font-size: 14px; transition: 0.2s; outline: none; }
         .e-input:focus { border-color: #7c3aed; background: #0a0a0f; }
 
-        /* Settings Boxes (Visuals) */
         .e-setting-group { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; }
         
         .e-keybind-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -87,7 +84,7 @@
     `;
 
     // =================================================================
-    // 3. ESTRUTURA HTML
+    // 3. ESTRUTURA HTML (SEM SYNC AUTOMÁTICO)
     // =================================================================
     const ECLIPSE_HTML = `
         <div id="eclipse-dashboard-container">
@@ -106,38 +103,33 @@
                     <div id="tab-player" class="e-tab-page active">
                         <h2>Player Config</h2>
                         <label class="e-label">Main Nickname</label>
-                        <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname..." 
-                               oninput="window.syncInput(this.value, 'nickname', 'nickname')">
+                        <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname...">
                         
                         <label class="e-label">Skin Asset URL</label>
                         <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." 
-                               oninput="window.syncInput(this.value, 'skinurl', 'skinUrl'); window.checkSkin(this.value, 'main')">
+                               oninput="window.checkSkin(this.value, 'main')">
                     </div>
 
                     <div id="tab-dual" class="e-tab-page">
                         <h2>Dual Identity</h2>
                         <label class="e-label">Minion Nickname</label>
-                        <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname..."
-                               oninput="window.saveDualConfig()">
+                        <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname...">
                         
                         <label class="e-label">Minion Skin Asset</label>
                         <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." 
-                               oninput="window.checkSkin(this.value, 'dual'); window.saveDualConfig()">
+                               oninput="window.checkSkin(this.value, 'dual')">
                     </div>
 
                     <div id="tab-visuals" class="e-tab-page">
                         <h2>Visuals & Keybinds</h2>
-                        
                         <div class="e-setting-group">
                             <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none;">
                                 <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)"> 
                                 Show Connection Lines
                             </label>
                         </div>
-
                         <div class="e-setting-group">
                             <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
-                            
                             <div class="e-keybind-row">
                                 <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="ALT+C" readonly onclick="window.startRebind('clip', this)">
@@ -160,101 +152,79 @@
     `;
 
     // =================================================================
-    // 4. LÓGICA DE SYNC E SEGURANÇA
+    // 4. LÓGICA DE INJEÇÃO (A MÁGICA ACONTECE AQUI)
     // =================================================================
 
-    // Sincroniza Main Nick/Skin com SEGURANÇA
-    window.syncInput = (value, gameInputId, storageKey) => {
-        // SECURITY CHECK PARA SKINS
-        if (gameInputId === 'skinurl' || gameInputId === 'skin_url') {
-            if (value.length > 0 && !value.includes('http')) {
-                // Se não for um link válido, não injeta no jogo para não quebrar
-                return; 
-            }
+    window.eclipseInjectSystem = () => {
+        // 1. Ler valores dos inputs
+        const mainNick = document.getElementById('main-nick').value;
+        const mainSkin = document.getElementById('main-skin').value;
+        const dualNick = document.getElementById('dual-nick').value;
+        const dualSkin = document.getElementById('dual-skin').value;
+
+        // 2. Aplicar Main Identity
+        if (mainNick) {
+            localStorage.setItem('nickname', mainNick);
+            // Atualiza Input do Jogo
+            let gameNick = document.getElementById('nickname');
+            if(gameNick) { gameNick.value = mainNick; gameNick.dispatchEvent(new Event('input')); }
         }
 
-        if (storageKey) localStorage.setItem(storageKey, value);
-
-        let gameInput = document.getElementById(gameInputId);
-        if (!gameInput && gameInputId === 'skinurl') gameInput = document.getElementById('skin_url');
-
-        if (gameInput) {
-            gameInput.value = value;
-            gameInput.dispatchEvent(new Event('input', { bubbles: true }));
-            gameInput.dispatchEvent(new Event('change', { bubbles: true }));
+        // 3. Aplicar Main Skin (COM SEGURANÇA)
+        // Só aplica se não estiver vazio E se parecer um URL válido
+        if (mainSkin && mainSkin.includes('http')) {
+            localStorage.setItem('skinUrl', mainSkin);
+            let gameSkin = document.getElementById('skinurl') || document.getElementById('skin_url');
+            if(gameSkin) { gameSkin.value = mainSkin; gameSkin.dispatchEvent(new Event('input')); }
         }
-    };
 
-    // Sincroniza Dual Config (Agora funciona em tempo real)
-    window.saveDualConfig = () => {
-        const dNick = document.getElementById('dual-nick').value;
-        const dSkin = document.getElementById('dual-skin').value;
+        // 4. Aplicar Dual Identity (COM SEGURANÇA)
+        localStorage.setItem('dualNickname', dualNick);
+        // Só salva a skin se for válida, senão mantém a anterior ou ignora
+        if (dualSkin && dualSkin.includes('http')) {
+            localStorage.setItem('dualSkinUrl', dualSkin);
+        }
 
-        // Segurança básica na skin do dual também
-        if (dSkin.length > 0 && !dSkin.includes('http')) return;
-        
-        // Atualiza a variável global do jogo se existir
-        if(window.game) {
+        if (window.game) {
             if(!window.game.dualIdentity) window.game.dualIdentity = {};
-            window.game.dualIdentity.nickname = dNick;
-            window.game.dualIdentity.skin = dSkin;
+            window.game.dualIdentity.nickname = dualNick;
             
-            // Se o jogo tiver função de refresh imediato
-            if(window.game.sendDualIdentity) window.game.sendDualIdentity();
+            if (dualSkin && dualSkin.includes('http')) {
+                window.game.dualIdentity.skin = dualSkin;
+            }
+            
+            if (window.game.sendDualIdentity) window.game.sendDualIdentity();
         }
 
-        localStorage.setItem('dualNickname', dNick);
-        localStorage.setItem('dualSkinUrl', dSkin);
+        showToast("System Injected Successfully 💉");
+        const menu = document.getElementById('eclipse-main-wrap');
+        if(menu) menu.remove();
     };
 
-    // Sistema de Rebind (Trocar Tecla)
+
+    // --- FUNÇÕES DE UI (VISUAL) ---
+    window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
+
+    // Rebind de Teclas
     let isRebinding = false;
     window.startRebind = (action, inputEl) => {
         if(isRebinding) return;
         isRebinding = true;
-        inputEl.value = "PRESS KEY";
-        inputEl.style.borderColor = "#7c3aed";
-        
+        inputEl.value = "PRESS KEY"; inputEl.style.borderColor = "#7c3aed";
         const handler = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
+            e.preventDefault(); e.stopPropagation();
             let code = e.code;
             let display = code.replace('Key', '');
             if(e.altKey) display = "ALT+" + display;
             else if(e.ctrlKey) display = "CTRL+" + display;
             else if(e.shiftKey) display = "SHIFT+" + display;
 
-            // Salvar Config
-            if(action === 'clip') {
-                KEY_CLIP = code;
-                KEY_CLIP_ALT = e.altKey;
-            }
+            if(action === 'clip') { KEY_CLIP = code; KEY_CLIP_ALT = e.altKey; }
 
-            inputEl.value = display;
-            inputEl.style.borderColor = "#333";
-            isRebinding = false;
-            window.removeEventListener('keydown', handler, true);
+            inputEl.value = display; inputEl.style.borderColor = "#333";
+            isRebinding = false; window.removeEventListener('keydown', handler, true);
         };
         window.addEventListener('keydown', handler, true);
-    };
-
-    window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
-
-    // =================================================================
-    // 5. FUNÇÕES CORE (GRAVAÇÃO, MENU, ETC)
-    // =================================================================
-    
-    // UI UTILS
-    const showToast = (msg, isError = false) => {
-        let container = document.getElementById('eclipse-toast-container') || document.createElement('div');
-        if(!container.id) { container.id='eclipse-toast-container'; container.style.cssText="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:2000001;pointer-events:none;display:flex;flex-direction:column;gap:10px;"; document.body.appendChild(container); }
-        const toast = document.createElement('div');
-        const color = isError ? '#ef4444' : '#7c3aed';
-        toast.style.cssText = `background:rgba(10,10,15,0.95); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 600; font-size: 14px; backdrop-filter:blur(5px); pointer-events:auto;`;
-        toast.innerHTML = msg;
-        container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     };
 
     window.eclipseTab = function(tabName, element) {
@@ -285,19 +255,16 @@
         document.body.appendChild(wrap);
         wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); };
 
-        // Carregar Estado Inicial
+        // Pre-fill Inputs (exceto Main Nick que fica vazio)
         setTimeout(() => {
-            // FIX: Main Nick sempre vazio ao abrir, como pedido
-            if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
-
-            // Carregar skin atual (se existir)
+            if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; // Vazio como pedido
+            
             const currentSkin = localStorage.getItem('skinUrl') || "";
             if(document.getElementById('main-skin')) {
                 document.getElementById('main-skin').value = currentSkin;
                 if(currentSkin) window.checkSkin(currentSkin, 'main');
             }
 
-            // Dual
             const dNick = localStorage.getItem('dualNickname') || "";
             const dSkin = localStorage.getItem('dualSkinUrl') || "";
             if(document.getElementById('dual-nick')) document.getElementById('dual-nick').value = dNick;
@@ -305,8 +272,8 @@
                 document.getElementById('dual-skin').value = dSkin;
                 if(dSkin) window.checkSkin(dSkin, 'dual');
             }
-
-            // Bind Display
+            
+            // Atualizar Visual da Bind
             const bindInput = document.getElementById('bind-clip-input');
             if(bindInput) {
                 let disp = KEY_CLIP.replace('Key', '');
@@ -316,11 +283,19 @@
         }, 50);
     };
 
-    window.eclipseInjectSystem = () => {
-        window.saveDualConfig(); // Garante salvamento final
-        showToast("System Configured ⚙️");
-        const menu = document.getElementById('eclipse-main-wrap');
-        if(menu) menu.remove();
+    // =================================================================
+    // 5. FUNÇÕES CORE (GRAVAÇÃO, UTILS, ETC)
+    // =================================================================
+    
+    const showToast = (msg, isError = false) => {
+        let container = document.getElementById('eclipse-toast-container') || document.createElement('div');
+        if(!container.id) { container.id='eclipse-toast-container'; container.style.cssText="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:2000001;pointer-events:none;display:flex;flex-direction:column;gap:10px;"; document.body.appendChild(container); }
+        const toast = document.createElement('div');
+        const color = isError ? '#ef4444' : '#7c3aed';
+        toast.style.cssText = `background:rgba(10,10,15,0.95); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 600; font-size: 14px; backdrop-filter:blur(5px); pointer-events:auto;`;
+        toast.innerHTML = msg;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     };
 
     // GRAVADOR
@@ -334,15 +309,11 @@
     const initRecorder = () => {
         const canvas = findGameCanvas();
         if (!canvas) { setTimeout(initRecorder, 1000); return; }
-        try {
-            activeStream = canvas.captureStream(60);
-            startRec(0); setTimeout(() => startRec(1), 10000);
-        } catch (e) { setTimeout(initRecorder, 2000); }
+        try { activeStream = canvas.captureStream(60); startRec(0); setTimeout(() => startRec(1), 10000); } catch (e) { setTimeout(initRecorder, 2000); }
     };
     const startRec = (idx) => {
         if (!activeStream) return;
-        const r = recorders[idx];
-        r.chunks = []; r.startTime = Date.now();
+        const r = recorders[idx]; r.chunks = []; r.startTime = Date.now();
         let mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
         try {
             r.rec = new MediaRecorder(activeStream, { mimeType: mime, videoBitsPerSecond: 6000000 });
@@ -368,14 +339,12 @@
             a.href = url; a.download = `Eclipse-Clip-${Date.now()}.webm`;
             document.body.appendChild(a); a.click();
             setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
-            isProcessing = false;
-            startRec(idx);
+            isProcessing = false; startRec(idx);
         };
-        target.rec.stop();
-        if(target.timer) clearTimeout(target.timer);
+        target.rec.stop(); if(target.timer) clearTimeout(target.timer);
     };
 
-    // SPECTATE & CONTEXT
+    // SPECTATE
     const getRealSkinUrl = (pid) => {
         if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
         const g = window.game; if (!g) return null;
@@ -431,12 +400,10 @@
         document.body.appendChild(contextMenu);
 
         window.addEventListener('keydown', (e) => {
-            if (isRebinding) return; // Não ativa binds se estiver a mudar tecla
-            // Verifica a Bind do Clip
+            if (isRebinding) return;
             if (e.code === KEY_CLIP) {
                 if (KEY_CLIP_ALT && !e.altKey) return;
-                e.preventDefault(); 
-                window.triggerSave();
+                e.preventDefault(); window.triggerSave();
             }
         });
 
@@ -463,20 +430,14 @@
                 contextMenu.style.display = 'block'; contextMenu.style.left = e.clientX + 'px'; contextMenu.style.top = e.clientY + 'px';
             } else { contextMenu.style.display = 'none'; }
         });
-
         window.addEventListener('click', (e) => { if(contextMenu && !contextMenu.contains(e.target)) contextMenu.style.display = 'none'; });
 
-        let canvas = document.createElement('canvas');
-        canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;";
-        document.body.appendChild(canvas);
+        let canvas = document.createElement('canvas'); canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;"; document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
         const draw = () => {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            const g = window.game;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight; const g = window.game;
             if (window.eclipse_showLines && g?.nodelist) {
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                const activeId = g.activePid || g.playerId;
-                const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
+                ctx.clearRect(0,0,canvas.width,canvas.height); const activeId = g.activePid || g.playerId; const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
                 ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1.5;
                 for(let n of g.nodelist) {
                     if(n.pid === activeId && !n.isDead) {
@@ -484,12 +445,9 @@
                         const s = cam.scale.x; const sx = (n.x - cam.position.x) * s + (innerWidth/2); const sy = (n.y - cam.position.y) * s + (innerHeight/2);
                         ctx.moveTo(sx, sy); ctx.lineTo(mouse.x, mouse.y);
                     }
-                }
-                ctx.stroke();
-            }
-            requestAnimationFrame(draw);
-        };
-        draw();
+                } ctx.stroke();
+            } requestAnimationFrame(draw);
+        }; draw();
         initRecorder();
         
         const trig = document.createElement('div');
