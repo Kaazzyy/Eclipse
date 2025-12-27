@@ -516,57 +516,85 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
         });
     };
 
-window.openEclipseMenu = async function() { // 1. Adicionado 'async' aqui
+window.openEclipseMenu = async function() {
         if(document.getElementById('eclipse-main-wrap')) return;
-        showToast("Loading Eclipse Menu...");
+        
+        showToast("A carregar menu...", false); // Feedback visual
+        
         try {
-            // 2. Adicionado 'await' aqui
+            // 1. Faz o download do HTML
             const res = await fetch(`${GITHUB_URL}?t=${Date.now()}`);
+            if (!res.ok) throw new Error(`Erro HTTP: ${res.status}`);
             
-            // Verificação de segurança extra (opcional mas recomendada)
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-
-            // 3. Adicionado 'await' aqui
             const html = await res.text();
-            
+
+            // 2. Verificação de segurança: Se o HTML for muito curto, algo correu mal
+            if (html.length < 50) throw new Error("O ficheiro HTML descarregado parece vazio ou inválido.");
+
             let wrap = document.createElement('div');
             wrap.id = "eclipse-main-wrap";
-            wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.8);";
+            // Adicionado 'color:white' para garantir que texto sem estilo seja visível
+            wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); color: white; font-family: sans-serif;";
+            
             if (!wrap.parentElement) document.body.appendChild(wrap);
             wrap.innerHTML = html;
 
+            // 3. Inicialização dos componentes (com atraso para garantir que o DOM renderizou)
             setTimeout(() => {
-                // Verifica se a função de tabs existe antes de chamar
-                if (typeof window.eclipseTab === 'function') {
-                    window.eclipseTab('player');
-                }
-
-                // Visuals toggle
-                const visualsTab = wrap.querySelector('#tab-visuals');
-                if(visualsTab && !document.getElementById('eclipse-lines-toggle')) {
-                     const div = document.createElement('div');
-                     div.innerHTML = `<br><label style="color:white;"><input type="checkbox" id="eclipse-lines-toggle" checked> Show Lines</label>`;
-                     visualsTab.appendChild(div);
-                     // Verifica se o elemento existe antes de adicionar o evento
-                     const toggle = document.getElementById('eclipse-lines-toggle');
-                     if (toggle) toggle.onchange = (e) => window.eclipse_showLines = e.target.checked;
-                }
-
-                // Bind Buttons com a nova função segura
-                const buttons = wrap.querySelectorAll('button, .btn, .vanis-button');
-                buttons.forEach(btn => {
-                    const txt = btn.innerText.toLowerCase();
-                    if(txt.includes("inject") || txt.includes("apply") || btn.id.includes("inject")) {
-                        btn.onclick = window.eclipseInjectSystem;
+                try {
+                    // Tenta ativar a primeira aba
+                    if (typeof window.eclipseTab === 'function') {
+                        console.log("[ECLIPSE] A abrir aba Player...");
+                        window.eclipseTab('player');
+                    } else {
+                        console.warn("[ECLIPSE] Função eclipseTab não encontrada.");
                     }
-                });
-            }, 100);
 
+                    // Tenta configurar o toggle de Visuals
+                    const visualsTab = wrap.querySelector('#tab-visuals');
+                    if(visualsTab && !document.getElementById('eclipse-lines-toggle')) {
+                         const div = document.createElement('div');
+                         div.innerHTML = `<br><label style="color:white; cursor:pointer;"><input type="checkbox" id="eclipse-lines-toggle" checked> Show Lines / Linhas</label>`;
+                         visualsTab.appendChild(div);
+                         
+                         const toggle = document.getElementById('eclipse-lines-toggle');
+                         if(toggle) toggle.onchange = (e) => window.eclipse_showLines = e.target.checked;
+                    }
+
+                    // Reconecta os botões de injeção
+                    const buttons = wrap.querySelectorAll('button, .btn, .vanis-button');
+                    buttons.forEach(btn => {
+                        const txt = btn.innerText.toLowerCase();
+                        if(txt.includes("inject") || txt.includes("apply") || btn.id.includes("inject")) {
+                            btn.onclick = window.eclipseInjectSystem;
+                        }
+                    });
+
+                } catch (innerErr) {
+                    console.error("[ECLIPSE] Erro ao inicializar UI:", innerErr);
+                }
+            }, 200); // Aumentei ligeiramente o tempo para 200ms
+
+            // Botão de fechar
             const closeBtn = wrap.querySelector('#btn-activate');
             if(closeBtn) closeBtn.onclick = () => { wrap.remove(); };
+
         } catch(e) {
-            console.error(e); // Ajuda a ver o erro real na consola (F12)
-            showToast("Failed to load menu", true);
+            console.error("[ECLIPSE] Erro Fatal:", e);
+            
+            // Mostra o erro no ecrã para saberes o que se passa
+            let errorWrap = document.getElementById('eclipse-main-wrap');
+            if (!errorWrap) {
+                errorWrap = document.createElement('div');
+                errorWrap.id = "eclipse-main-wrap";
+                errorWrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); color: #ff5555; flex-direction: column;";
+                document.body.appendChild(errorWrap);
+            }
+            errorWrap.innerHTML = `
+                <h2>Erro ao carregar o menu</h2>
+                <p>${e.message}</p>
+                <button onclick="document.getElementById('eclipse-main-wrap').remove()" style="padding:10px; margin-top:20px; cursor:pointer;">Fechar</button>
+            `;
         }
     };
 
