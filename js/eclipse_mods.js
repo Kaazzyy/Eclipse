@@ -1,15 +1,17 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] vFinal 6.0 - Manual Injection (Safe Mode)");
+    console.log("[ECLIPSE] vFinal 7.0 - Smart Binds & Chat Protection");
 
     // =================================================================
     // 1. CONFIGURAÇÕES & VARIÁVEIS
     // =================================================================
     
-    // Variáveis de Teclas (Padrão)
-    let KEY_CLIP = 'KeyC'; 
-    let KEY_CLIP_ALT = true; // Requer Alt?
+    // Variáveis de Teclas (Padrão: R)
+    let KEY_CLIP = 'KeyR'; 
+    let KEY_CLIP_ALT = false; 
+    let KEY_CLIP_CTRL = false;
+    let KEY_CLIP_SHIFT = false;
 
     // Variáveis de Sistema
     window.eclipse_showLines = true;
@@ -63,11 +65,12 @@
         .e-keybind-input { 
             background: #000; border: 1px solid #333; color: #ccc; 
             padding: 5px 10px; border-radius: 6px; font-size: 12px; 
-            font-weight: bold; width: 80px; text-align: center; cursor: pointer;
+            font-weight: bold; width: 120px; text-align: center; cursor: pointer;
             transition: 0.2s;
         }
         .e-keybind-input:focus { border-color: #7c3aed; color: #7c3aed; }
         .e-keybind-input:hover { border-color: #555; }
+        .e-keybind-input.recording { border-color: #ef4444; color: #ef4444; animation: pulse 1s infinite; }
 
         #e-btn-activate { margin-top: auto; padding: 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; transition: 0.2s; font-size: 13px; letter-spacing: 1.5px; width: 100%; }
         #e-btn-activate:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3); }
@@ -81,10 +84,11 @@
         .e-ctx-item { padding: 10px 12px; color: #e2e8f0; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s; }
         .e-ctx-item:hover { background: rgba(124, 58, 237, 0.15); color: white; }
         @keyframes e-fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     `;
 
     // =================================================================
-    // 3. ESTRUTURA HTML (SEM SYNC AUTOMÁTICO)
+    // 3. ESTRUTURA HTML
     // =================================================================
     const ECLIPSE_HTML = `
         <div id="eclipse-dashboard-container">
@@ -104,20 +108,16 @@
                         <h2>Player Config</h2>
                         <label class="e-label">Main Nickname</label>
                         <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname...">
-                        
                         <label class="e-label">Skin Asset URL</label>
-                        <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." 
-                               oninput="window.checkSkin(this.value, 'main')">
+                        <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." oninput="window.checkSkin(this.value, 'main')">
                     </div>
 
                     <div id="tab-dual" class="e-tab-page">
                         <h2>Dual Identity</h2>
                         <label class="e-label">Minion Nickname</label>
                         <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname...">
-                        
                         <label class="e-label">Minion Skin Asset</label>
-                        <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." 
-                               oninput="window.checkSkin(this.value, 'dual')">
+                        <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
                     </div>
 
                     <div id="tab-visuals" class="e-tab-page">
@@ -129,10 +129,10 @@
                             </label>
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
+                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS (CLICK TO CHANGE)</label>
                             <div class="e-keybind-row">
                                 <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
-                                <input type="text" class="e-keybind-input" id="bind-clip-input" value="ALT+C" readonly onclick="window.startRebind('clip', this)">
+                                <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
                             </div>
                         </div>
                     </div>
@@ -152,47 +152,35 @@
     `;
 
     // =================================================================
-    // 4. LÓGICA DE INJEÇÃO (A MÁGICA ACONTECE AQUI)
+    // 4. LÓGICA DE INJEÇÃO (Manual & Segura)
     // =================================================================
 
     window.eclipseInjectSystem = () => {
-        // 1. Ler valores dos inputs
         const mainNick = document.getElementById('main-nick').value;
         const mainSkin = document.getElementById('main-skin').value;
         const dualNick = document.getElementById('dual-nick').value;
         const dualSkin = document.getElementById('dual-skin').value;
 
-        // 2. Aplicar Main Identity
+        // Apply Main
         if (mainNick) {
             localStorage.setItem('nickname', mainNick);
-            // Atualiza Input do Jogo
             let gameNick = document.getElementById('nickname');
             if(gameNick) { gameNick.value = mainNick; gameNick.dispatchEvent(new Event('input')); }
         }
-
-        // 3. Aplicar Main Skin (COM SEGURANÇA)
-        // Só aplica se não estiver vazio E se parecer um URL válido
         if (mainSkin && mainSkin.includes('http')) {
             localStorage.setItem('skinUrl', mainSkin);
             let gameSkin = document.getElementById('skinurl') || document.getElementById('skin_url');
             if(gameSkin) { gameSkin.value = mainSkin; gameSkin.dispatchEvent(new Event('input')); }
         }
 
-        // 4. Aplicar Dual Identity (COM SEGURANÇA)
+        // Apply Dual
         localStorage.setItem('dualNickname', dualNick);
-        // Só salva a skin se for válida, senão mantém a anterior ou ignora
-        if (dualSkin && dualSkin.includes('http')) {
-            localStorage.setItem('dualSkinUrl', dualSkin);
-        }
+        if (dualSkin && dualSkin.includes('http')) localStorage.setItem('dualSkinUrl', dualSkin);
 
         if (window.game) {
             if(!window.game.dualIdentity) window.game.dualIdentity = {};
             window.game.dualIdentity.nickname = dualNick;
-            
-            if (dualSkin && dualSkin.includes('http')) {
-                window.game.dualIdentity.skin = dualSkin;
-            }
-            
+            if (dualSkin && dualSkin.includes('http')) window.game.dualIdentity.skin = dualSkin;
             if (window.game.sendDualIdentity) window.game.sendDualIdentity();
         }
 
@@ -201,32 +189,66 @@
         if(menu) menu.remove();
     };
 
-
-    // --- FUNÇÕES DE UI (VISUAL) ---
-    window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
-
-    // Rebind de Teclas
+    // --- REBIND SYSTEM INTELIGENTE ---
     let isRebinding = false;
+
     window.startRebind = (action, inputEl) => {
         if(isRebinding) return;
         isRebinding = true;
-        inputEl.value = "PRESS KEY"; inputEl.style.borderColor = "#7c3aed";
+        inputEl.value = "PRESS KEY...";
+        inputEl.classList.add('recording');
+        
         const handler = (e) => {
-            e.preventDefault(); e.stopPropagation();
-            let code = e.code;
-            let display = code.replace('Key', '');
-            if(e.altKey) display = "ALT+" + display;
-            else if(e.ctrlKey) display = "CTRL+" + display;
-            else if(e.shiftKey) display = "SHIFT+" + display;
+            e.preventDefault(); 
+            e.stopPropagation();
+            
+            // Detecta Modificadores
+            const isAlt = e.altKey;
+            const isCtrl = e.ctrlKey;
+            const isShift = e.shiftKey;
+            
+            // Limpa o código da tecla para mostrar bonito
+            let code = e.code.replace('Key', '').replace('Digit', '').replace('Left', '').replace('Right', '');
+            if(code === 'Alt' || code === 'Control' || code === 'Shift') code = ""; // Não mostra modificador sozinho como tecla final
 
-            if(action === 'clip') { KEY_CLIP = code; KEY_CLIP_ALT = e.altKey; }
+            // Constrói o Display
+            let displayParts = [];
+            if(isCtrl) displayParts.push("CTRL");
+            if(isAlt) displayParts.push("ALT");
+            if(isShift) displayParts.push("SHIFT");
+            if(code) displayParts.push(code);
 
-            inputEl.value = display; inputEl.style.borderColor = "#333";
-            isRebinding = false; window.removeEventListener('keydown', handler, true);
+            let displayString = displayParts.join("+");
+            if(displayString === "") displayString = "..."; // Ainda a segurar só modificador
+
+            inputEl.value = displayString;
+
+            // Lógica de Finalização: 
+            // Só guarda se o utilizador pressionou uma tecla que NÃO é modificador (ex: pressionou 'C' enquanto segura Alt)
+            const isModifierKey = ['Alt', 'Control', 'Shift', 'Meta'].some(m => e.key === m);
+            
+            if (!isModifierKey) {
+                // SALVAR
+                if(action === 'clip') {
+                    KEY_CLIP = e.code;
+                    KEY_CLIP_ALT = isAlt;
+                    KEY_CLIP_CTRL = isCtrl;
+                    KEY_CLIP_SHIFT = isShift;
+                }
+                
+                inputEl.classList.remove('recording');
+                inputEl.style.borderColor = "#333";
+                isRebinding = false;
+                window.removeEventListener('keydown', handler, true);
+            }
         };
+        
         window.addEventListener('keydown', handler, true);
     };
 
+    // --- UI UTILS ---
+    window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
+    
     window.eclipseTab = function(tabName, element) {
         document.querySelectorAll('.e-nav-item').forEach(item => item.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -255,9 +277,8 @@
         document.body.appendChild(wrap);
         wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); };
 
-        // Pre-fill Inputs (exceto Main Nick que fica vazio)
         setTimeout(() => {
-            if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; // Vazio como pedido
+            if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
             
             const currentSkin = localStorage.getItem('skinUrl') || "";
             if(document.getElementById('main-skin')) {
@@ -276,9 +297,12 @@
             // Atualizar Visual da Bind
             const bindInput = document.getElementById('bind-clip-input');
             if(bindInput) {
-                let disp = KEY_CLIP.replace('Key', '');
-                if(KEY_CLIP_ALT) disp = "ALT+" + disp;
-                bindInput.value = disp;
+                let parts = [];
+                if(KEY_CLIP_CTRL) parts.push("CTRL");
+                if(KEY_CLIP_ALT) parts.push("ALT");
+                if(KEY_CLIP_SHIFT) parts.push("SHIFT");
+                parts.push(KEY_CLIP.replace('Key', '').replace('Digit',''));
+                bindInput.value = parts.join("+");
             }
         }, 50);
     };
@@ -344,7 +368,7 @@
         target.rec.stop(); if(target.timer) clearTimeout(target.timer);
     };
 
-    // SPECTATE
+    // SPECTATE & CONTEXT
     const getRealSkinUrl = (pid) => {
         if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
         const g = window.game; if (!g) return null;
@@ -401,9 +425,19 @@
 
         window.addEventListener('keydown', (e) => {
             if (isRebinding) return;
+            
+            // VERIFICA SE ESTÁ A ESCREVER (CHAT, NICK, ETC)
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+            if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
+
+            // DETEÇÃO DE BIND SEGURA
             if (e.code === KEY_CLIP) {
                 if (KEY_CLIP_ALT && !e.altKey) return;
-                e.preventDefault(); window.triggerSave();
+                if (KEY_CLIP_CTRL && !e.ctrlKey) return;
+                if (KEY_CLIP_SHIFT && !e.shiftKey) return;
+
+                e.preventDefault(); 
+                window.triggerSave();
             }
         });
 
