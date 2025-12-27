@@ -598,7 +598,7 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
         document.body.appendChild(contextMenu);
 
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyR') { e.preventDefault(); triggerSave(); }
+            if (e.altKey && e.code === 'KeyC') { e.preventDefault(); triggerSave(); }
         });
 
         window.addEventListener('contextmenu', (e) => {
