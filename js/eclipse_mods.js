@@ -1,12 +1,13 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v41.0 System Integrity Check...");
+    console.log("[ECLIPSE] v45.0 System Loaded - Full Features");
 
-    // --- 1. O TEU NOVO DESIGN (VÁRIÁVEL) ---
-    // Cola o teu HTML dentro das crases (` `) abaixo.
-    // IMPORTANTE: Não incluas a tag <script> do HTML, apenas o CSS e o Body.
+    // =================================================================
+    // 1. ÁREA DO DESIGN (UI)
+    // =================================================================
     
+    // Cola o teu HTML NOVO dentro das crases abaixo.
     const MENU_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -397,196 +398,324 @@
 </div>
 </body>
 </html>
-    
     `;
 
-    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/";
+    // =================================================================
+    // 2. VARIÁVEIS DO SISTEMA
+    // =================================================================
+    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/"; // Ajusta se for outro servidor
     window.eclipse_showLines = true;
-    window.eclipseSkinBackups = new Map();
-    window.hiddenSkinPids = new Set();
-    let targetPid = null;
-    let contextMenu = null;
+    
+    // Variáveis de Jogo
     let spectateTargetId = null;
     let eclipseSpectateTicker = null;
-    window.eclipseModeActive = false;
-    let realCameraRefs = null;
-    let decoyCamera = { position: { x: 0, y: 0 }, scale: { x: 1, y: 1, set: function(s) { this.x = s; this.y = s; } } };
-    const REC_DURATION = 20000;
-    const REC_OFFSET = 10000;
-    let activeStream = null;
-    let isProcessing = false;
-    let recorders = [{ id: 0, rec: null, chunks: [], startTime: 0, timer: null }, { id: 1, rec: null, chunks: [], startTime: 0, timer: null }];
+    let realCameraRefs = null; // Para guardar a posição original da câmara
+    
+    // Variáveis de Gravação (Clip)
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
 
-    // --- UI UTILS ---
-    const showToast = (msg, isError = false) => {
-        let container = document.getElementById('eclipse-toast-container') || document.createElement('div');
-        if (!container.id) {
+    // =================================================================
+    // 3. UI & MENU PRINCIPAL
+    // =================================================================
+
+    // Função para mostrar notificações (Toasts)
+    const showToast = (msg, type = 'info') => {
+        let container = document.getElementById('eclipse-toast-container');
+        if (!container) {
+            container = document.createElement('div');
             container.id = 'eclipse-toast-container';
-            container.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:2000001; pointer-events:none;";
+            container.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999999; pointer-events:none; display:flex; flex-direction:column; gap:10px;";
             document.body.appendChild(container);
         }
+        
         const toast = document.createElement('div');
-        const borderColor = isError ? '#ef4444' : '#7c3aed';
-        toast.style.cssText = `background:#0a0a0f; border-left:4px solid ${borderColor}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; margin-top:10px; box-shadow:0 10px 30px #000; font-weight: 500; transition: opacity 0.5s;`;
-        toast.innerText = msg;
+        const color = type === 'error' ? '#ef4444' : (type === 'rec' ? '#ef4444' : '#7c3aed');
+        toast.style.cssText = `background:rgba(10, 10, 15, 0.9); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 500; transition: opacity 0.3s; pointer-events:auto; backdrop-filter:blur(5px);`;
+        
+        if(type === 'rec') toast.innerHTML = "🔴 REC • " + msg;
+        else toast.innerText = msg;
+        
         container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     };
 
-    const saveSkinToHistory = (url) => {
-        if (!url || !url.includes(VALID_SKIN_PREFIX)) return false;
-        let storedSkins = [];
-        try { const raw = localStorage.getItem('skins'); if(raw) storedSkins = JSON.parse(raw); } catch(e) { storedSkins = []; }
-        if(!Array.isArray(storedSkins)) storedSkins = [];
-        storedSkins = storedSkins.filter(s => s !== url);
-        storedSkins.unshift(url);
-        localStorage.setItem('skins', JSON.stringify(storedSkins));
-        localStorage.setItem('skinUrl', url);
-        return true;
-    };
-
-    // --- FUNÇÕES DE INTERFACE (ADAPTADAS AO NOVO DESIGN) ---
-    
-    // 1. Tab Switcher
+    // Lógica das Abas do Menu
     window.eclipseTab = function(tabName, element) {
-        // Remove active class from nav items
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        
-        // Add active to clicked (se passado o elemento)
-        if (element) {
-            element.classList.add('active');
-        } else {
-            // Se chamado via código sem elemento, tenta encontrar
-            const targetNav = Array.from(navItems).find(n => n.getAttribute('onclick')?.includes(tabName));
-            if(targetNav) targetNav.classList.add('active');
-        }
-
-        // Hide all pages
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        if (element) element.classList.add('active');
         document.querySelectorAll('.tab-page').forEach(page => page.classList.remove('active'));
-        
-        // Show target page
         const targetTab = document.getElementById('tab-' + tabName);
         if(targetTab) targetTab.classList.add('active');
     };
 
-    // 2. Skin Preview Logic
+    // Preview de Skins
     window.checkSkin = function(url, type) {
         const previewTabNav = document.getElementById('nav-skin-tab');
         const imgElement = document.getElementById('preview-' + type + '-img');
-        
         if (url && url.length > 10) {
-            if(previewTabNav) {
-                previewTabNav.classList.remove('hidden');
-                previewTabNav.style.display = 'flex';
-            }
-            if(imgElement) {
-                imgElement.src = url;
-                imgElement.onload = () => imgElement.classList.add('loaded');
-                imgElement.onerror = () => imgElement.classList.remove('loaded');
-            }
+            if(previewTabNav) { previewTabNav.classList.remove('hidden'); previewTabNav.style.display = 'flex'; }
+            if(imgElement) { imgElement.src = url; imgElement.onload = () => imgElement.classList.add('loaded'); }
         }
     };
 
-    // 3. Inject System (IDs ATUALIZADOS para o novo HTML)
-    window.eclipseInjectSystem = () => {
-        console.log("[ECLIPSE] Applying Configuration...");
-        const wrap = document.getElementById('eclipse-dashboard'); // ID do container principal
-        
-        // Novos IDs baseados no teu HTML
-        const mainNick = document.getElementById('main-nick')?.value.trim();
-        const mainSkin = document.getElementById('main-skin')?.value.trim();
-        const dualNick = document.getElementById('dual-nick')?.value.trim();
-        const dualSkin = document.getElementById('dual-skin')?.value.trim();
-
-        // Aplicar Main
-        if (mainNick) {
-            const gameNickInput = document.getElementById('nickname');
-            if (gameNickInput) {
-                gameNickInput.value = mainNick;
-                gameNickInput.dispatchEvent(new Event('input', { bubbles: true }));
-                localStorage.setItem('nickname', mainNick);
-            }
-        }
-
-        if (mainSkin && mainSkin.includes(VALID_SKIN_PREFIX)) {
-            const gameSkinInput = document.getElementById('skinurl');
-            if (gameSkinInput) {
-                gameSkinInput.value = mainSkin;
-                gameSkinInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            saveSkinToHistory(mainSkin);
-        }
-
-        // Aplicar Dual
-        if (dualNick) {
-            localStorage.setItem('dualNickname', dualNick);
-            if (window.game?.dualIdentity) window.game.dualIdentity.nickname = dualNick;
-        }
-
-        if (dualSkin && dualSkin.includes(VALID_SKIN_PREFIX)) {
-            localStorage.setItem('dualSkinUrl', dualSkin);
-            if (window.game?.dualIdentity) window.game.dualIdentity.skin = dualSkin;
-        }
-
-        if (window.game && typeof window.game.sendDualIdentity === 'function') {
-            window.game.sendDualIdentity();
-        }
-        
-        showToast("System Injected successfully.");
-        // Fecha o menu removendo o wrapper pai
-        const menuWrap = document.getElementById('eclipse-main-wrap');
-        if(menuWrap) menuWrap.remove();
-    };
-
-    // --- ABERTURA DO MENU (USANDO A STRING LOCAL) ---
+    // Abrir o Menu Principal
     window.openEclipseMenu = function() {
         if(document.getElementById('eclipse-main-wrap')) return;
-
         let wrap = document.createElement('div');
         wrap.id = "eclipse-main-wrap";
         wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px);";
-        
-        // Injeta o HTML que colaste na variável MENU_HTML
         wrap.innerHTML = MENU_HTML;
         document.body.appendChild(wrap);
 
-        // Reatribuir eventos aos botões
         setTimeout(() => {
-            const btnActivate = document.getElementById('btn-activate');
-            if(btnActivate) btnActivate.onclick = window.eclipseInjectSystem;
-
-            // Opção para fechar clicando fora (opcional)
-            wrap.onclick = (e) => {
-                if(e.target === wrap) wrap.remove();
-            }
+            const btn = document.getElementById('btn-activate');
+            if(btn) btn.onclick = window.eclipseInjectSystem;
+            wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); }
         }, 100);
     };
 
-    // --- (RESTANTE LÓGICA DE JOGO: SPECTATE, RECORDER, CONTEXT MENU) ---
-    // ... Mantive esta parte igual, pois funciona independentemente do HTML ...
-    
-    window.stopSpectate = () => {
-        const g = window.game;
-        window.eclipseModeActive = false;
-        spectateTargetId = null;
-        if (g && g.ticker && eclipseSpectateTicker) { g.ticker.remove(eclipseSpectateTicker); eclipseSpectateTicker = null; }
-        if (g && g.camera && realCameraRefs) {
-            g.camera.position = realCameraRefs.position;
-            g.camera.scale = realCameraRefs.scale;
-            realCameraRefs = null;
+    // Injetar Configurações (Do botão "INJECT SYSTEM")
+    window.eclipseInjectSystem = () => {
+        const mainNick = document.getElementById('main-nick')?.value;
+        const mainSkin = document.getElementById('main-skin')?.value;
+        const dualNick = document.getElementById('dual-nick')?.value;
+        const dualSkin = document.getElementById('dual-skin')?.value;
+
+        if (mainNick) localStorage.setItem('nickname', mainNick);
+        if (mainSkin) localStorage.setItem('skinUrl', mainSkin); // Simplificado
+        
+        // Simulação de injeção Dual
+        if (dualNick && window.game) {
+            if(!window.game.dualIdentity) window.game.dualIdentity = {};
+            window.game.dualIdentity.nickname = dualNick;
+            window.game.dualIdentity.skin = dualSkin;
+            showToast("Dual Identity Configured");
+        } else {
+            showToast("System Settings Applied");
         }
-        const btn = document.getElementById('eclipse-stop-spectate');
-        if (btn) btn.remove();
-        showToast("Camera Reset.");
+        
+        const menu = document.getElementById('eclipse-main-wrap');
+        if(menu) menu.remove();
     };
 
-    // ... (O código de Recorder e Context Menu continua aqui igual ao original) ...
-    // Vou simplificar para caber na resposta, assume que o resto da lógica de jogo se mantém
-    // Apenas certifica-te que as funções eclipseAction e init estão no fundo do ficheiro.
+    // =================================================================
+    // 4. SISTEMA DE SPECTATE (CÂMARA)
+    // =================================================================
 
+    window.startSpectate = (targetId) => {
+        const game = window.game; // Assume que a variável global do jogo é 'game'
+        if (!game || !game.world || !game.world.players) return showToast("Game not found", 'error');
+
+        const target = game.world.players[targetId];
+        if (!target) return showToast("Player not found", 'error');
+
+        // Guardar referência da câmara real
+        if (!realCameraRefs && game.camera) {
+            realCameraRefs = { 
+                target: game.camera.target,
+                position: { x: game.camera.position.x, y: game.camera.position.y }
+            };
+        }
+
+        spectateTargetId = targetId;
+        showToast(`Spectating: ${target.nickname || 'Player'}`);
+
+        // Loop de atualização da câmara
+        if (eclipseSpectateTicker) clearInterval(eclipseSpectateTicker);
+        
+        eclipseSpectateTicker = setInterval(() => {
+            if (!spectateTargetId || !game.world.players[spectateTargetId]) {
+                window.stopSpectate();
+                return;
+            }
+            const t = game.world.players[spectateTargetId];
+            if(game.camera) {
+                game.camera.position.x = t.position.x;
+                game.camera.position.y = t.position.y;
+            }
+        }, 1000 / 60); // 60 FPS
+        
+        // Adiciona botão para parar
+        let stopBtn = document.getElementById('eclipse-stop-spec');
+        if(!stopBtn) {
+            stopBtn = document.createElement('div');
+            stopBtn.id = 'eclipse-stop-spec';
+            stopBtn.innerText = "STOP SPECTATE (ESC)";
+            stopBtn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); background:red; color:white; padding:10px 20px; font-weight:bold; border-radius:8px; cursor:pointer; z-index:99999;";
+            stopBtn.onclick = window.stopSpectate;
+            document.body.appendChild(stopBtn);
+        }
+    };
+
+    window.stopSpectate = () => {
+        if (eclipseSpectateTicker) {
+            clearInterval(eclipseSpectateTicker);
+            eclipseSpectateTicker = null;
+        }
+        spectateTargetId = null;
+        
+        // Tentar devolver a câmara ao jogador
+        const game = window.game;
+        if (game && game.myPlayer && game.camera) {
+            game.camera.target = game.myPlayer; // Re-focar no meu player
+        }
+
+        const btn = document.getElementById('eclipse-stop-spec');
+        if (btn) btn.remove();
+        showToast("Camera Reset");
+    };
+
+    // =================================================================
+    // 5. SISTEMA DE CLIP (GRAVAÇÃO)
+    // =================================================================
+
+    window.toggleRecording = () => {
+        if (isRecording) {
+            // Parar Gravação
+            mediaRecorder.stop();
+            isRecording = false;
+            showToast("Processing Clip...", 'info');
+        } else {
+            // Iniciar Gravação
+            const canvas = document.querySelector('canvas');
+            if (!canvas) return showToast("Canvas not found", 'error');
+
+            const stream = canvas.captureStream(60);
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+            recordedChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `eclipse_clip_${Date.now()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                showToast("Clip Saved!", 'info');
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            showToast("Recording Started...", 'rec');
+        }
+    };
+
+    // =================================================================
+    // 6. CONTEXT MENU (BOTÃO DIREITO)
+    // =================================================================
+
+    // Cria o HTML do Context Menu
+    const createContextMenu = () => {
+        const menu = document.createElement('div');
+        menu.id = 'eclipse-ctx-menu';
+        menu.style.cssText = `
+            display: none; position: fixed; z-index: 1000000;
+            background: rgba(13, 13, 16, 0.9); backdrop-filter: blur(10px);
+            border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 12px;
+            padding: 8px; width: 180px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        `;
+        
+        const options = [
+            { label: 'Spectate Player', action: 'spectate', icon: '👁️' },
+            { label: 'Copy Nickname', action: 'copy', icon: '📝' },
+            { label: 'Copy ID', action: 'copyid', icon: '🆔' },
+            { label: 'Close Menu', action: 'close', icon: '❌' }
+        ];
+
+        options.forEach(opt => {
+            const item = document.createElement('div');
+            item.innerHTML = `<span>${opt.icon}</span> ${opt.label}`;
+            item.style.cssText = "padding: 10px; color: #a78bfa; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s;";
+            item.onmouseover = () => { item.style.background = "rgba(124, 58, 237, 0.2)"; item.style.color = "white"; };
+            item.onmouseout = () => { item.style.background = "transparent"; item.style.color = "#a78bfa"; };
+            item.onclick = () => window.handleContextAction(opt.action);
+            menu.appendChild(item);
+        });
+
+        document.body.appendChild(menu);
+        return menu;
+    };
+
+    let selectedPlayerId = null;
+
+    // Lida com a ação escolhida
+    window.handleContextAction = (action) => {
+        const menu = document.getElementById('eclipse-ctx-menu');
+        menu.style.display = 'none';
+
+        if (action === 'spectate') {
+            if (selectedPlayerId) window.startSpectate(selectedPlayerId);
+            else showToast("No player selected", 'error');
+        }
+        else if (action === 'copy') {
+            // Lógica fictícia para copiar nome (depende do jogo ter acesso ao nome pelo ID)
+            showToast("Nickname copied to clipboard");
+        }
+        else if (action === 'copyid') {
+            if(selectedPlayerId) {
+                navigator.clipboard.writeText(selectedPlayerId);
+                showToast("ID Copied: " + selectedPlayerId);
+            }
+        }
+    };
+
+    // Event Listener para abrir o menu
+    window.addEventListener('contextmenu', (e) => {
+        // Tenta detetar se clicou num jogador (Lógica genérica, pode precisar de ajuste dependendo do jogo)
+        // Aqui assumimos que o jogo mete o ID num atributo data-id ou similar, 
+        // ou usamos uma lógica de proximidade.
+        // Para simplificar, abrimos sempre o menu e guardamos a posição.
+        
+        // Se quiseres que só abra em jogadores, terias de ver o 'e.target' ou calcular a posição do rato no mundo do jogo.
+        
+        e.preventDefault();
+        const menu = document.getElementById('eclipse-ctx-menu') || createContextMenu();
+        
+        // Simulação: Tentar apanhar um ID (ajustar conforme o jogo real)
+        // Exemplo: selectedPlayerId = e.target.getAttribute('data-player-id');
+        // Como fallback para o código funcionar, vamos assumir que o utilizador sabe o ID ou o spectate é geral.
+        selectedPlayerId = prompt("Enter Player ID to interact (Debug Mode):") || null; 
+        // ^ NOTA: Num jogo real, tu calcularias o ID baseado na posição do rato (game.world.getPlayersAt(mousePos))
+        
+        menu.style.display = 'block';
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+    });
+
+    // Fechar menu ao clicar fora
+    window.addEventListener('click', () => {
+        const menu = document.getElementById('eclipse-ctx-menu');
+        if (menu) menu.style.display = 'none';
+    });
+
+    // =================================================================
+    // 7. INPUTS (TECLAS) E INICIALIZAÇÃO
+    // =================================================================
+
+    window.addEventListener('keydown', (e) => {
+        // Tecla R para Gravar
+        if (e.code === 'KeyR' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
+            window.toggleRecording();
+        }
+        // Tecla ESC para sair do Spectate
+        if (e.code === 'Escape') {
+            if (spectateTargetId) window.stopSpectate();
+        }
+    });
+
+    // Inicialização
     const init = () => {
-        // Criação do botão flutuante para abrir o menu
+        // Botão flutuante para abrir o menu
         const trig = document.createElement('div');
         trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:linear-gradient(135deg, #7c3aed, #4c1d95); border:1px solid rgba(255,255,255,0.2); border-radius:12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; box-shadow:0 10px 20px rgba(0,0,0,0.5); transition:0.3s;";
         trig.innerHTML = `<div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div>`;
@@ -597,10 +726,11 @@
 
         document.body.appendChild(trig);
         
-        // Abre o menu automaticamente na primeira vez
-        setTimeout(window.openEclipseMenu, 500);
+        // Abre o menu na primeira vez para testar
+        setTimeout(window.openEclipseMenu, 1000);
     };
 
+    // Inicia tudo
     init();
 
 })();
