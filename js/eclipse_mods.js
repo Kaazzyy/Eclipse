@@ -1,332 +1,15 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v50.0 - Full Kernel Access");
+    console.log("[ECLIPSE] v40.3.7 Restored - New Design Integrated");
 
     // =================================================================
-    // 1. DESIGN (INTERFACE)
+    // 1. O TEU NOVO DESIGN (HTML)
     // =================================================================
-    
-    const MENU_HTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eclipse Dashboard</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
-
-        :root {
-            --primary: #7c3aed;
-            --primary-glow: rgba(124, 58, 237, 0.6);
-            --bg-dark: #050507;
-            --panel-bg: rgba(13, 13, 16, 0.7);
-            --text-muted: #8a8a9b;
-            --border-color: rgba(255, 255, 255, 0.08);
-        }
-
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: 'Outfit', sans-serif; 
-            background: #020203; 
-            height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            overflow: hidden;
-            /* Background gradient for atmosphere */
-            background-image: radial-gradient(circle at 50% 0%, #1a0b2e 0%, #020203 60%);
-        }
-
-        /* --- Dashboard Container --- */
-        #eclipse-dashboard { 
-            display: flex; 
-            width: 800px; 
-            height: 560px; 
-            background: var(--panel-bg); 
-            backdrop-filter: blur(20px); 
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 32px; 
-            border: 1px solid var(--border-color); 
-            box-shadow: 0 20px 80px rgba(0,0,0,0.8), 
-                        0 0 0 1px rgba(124, 58, 237, 0.1) inset;
-            overflow: hidden; 
-            color: white; 
-            position: relative;
-        }
-
-        /* --- Sidebar --- */
-        .side-bar { 
-            width: 240px; 
-            background: rgba(255, 255, 255, 0.02); 
-            border-right: 1px solid var(--border-color); 
-            padding: 50px 30px; 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 2;
-        }
-
-        .logo { 
-            display: flex; 
-            align-items: center; 
-            gap: 16px; 
-            margin-bottom: 60px; 
-        }
-
-        .logo-icon { 
-            width: 42px; 
-            height: 42px; 
-            background: linear-gradient(135deg, #7c3aed, #4c1d95); 
-            border-radius: 12px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 800; 
-            font-size: 20px; 
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
-            color: white;
-        }
-
-        .logo span {
-            font-weight: 800;
-            font-size: 18px;
-            letter-spacing: 1px;
-            background: linear-gradient(to right, #fff, #a78bfa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .nav-item { 
-            padding: 16px 20px; 
-            border-radius: 14px; 
-            margin-bottom: 12px; 
-            cursor: pointer; 
-            color: var(--text-muted); 
-            font-weight: 600; 
-            font-size: 13px; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            letter-spacing: 0.5px; 
-            display: flex;
-            align-items: center;
-            border: 1px solid transparent;
-        }
-
-        .nav-item:hover { 
-            color: white; 
-            background: rgba(255, 255, 255, 0.03); 
-        }
-
-        .nav-item.active { 
-            background: rgba(124, 58, 237, 0.15); 
-            color: #a78bfa; 
-            border: 1px solid rgba(124, 58, 237, 0.2);
-            box-shadow: 0 0 15px rgba(124, 58, 237, 0.1);
-        }
-
-        .nav-item.hidden { display: none; }
-
-        /* --- Main Content --- */
-        .main-content { 
-            flex: 1; 
-            padding: 50px; 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-        }
-
-        /* Decorative Background Element */
-        .main-content::before {
-            content: '';
-            position: absolute;
-            top: -100px;
-            right: -100px;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%);
-            pointer-events: none;
-        }
-
-        .tab-page { 
-            display: none; 
-            flex-direction: column; 
-            height: 100%; 
-            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .tab-page.active { display: flex; }
-
-        h2 { 
-            margin: 0 0 8px 0; 
-            font-weight: 800; 
-            font-size: 32px; 
-            letter-spacing: -1px; 
-            color: white;
-        }
-
-        .subtitle {
-            font-size: 14px;
-            color: var(--text-muted);
-            margin-bottom: 40px;
-            font-weight: 400;
-        }
-
-        /* --- Forms & Inputs --- */
-        label { 
-            font-size: 11px; 
-            color: #a78bfa; 
-            font-weight: 700; 
-            display: block; 
-            margin-bottom: 10px; 
-            letter-spacing: 1px; 
-            text-transform: uppercase; 
-        }
-
-        input { 
-            width: 100%; 
-            background: rgba(0, 0, 0, 0.3); 
-            border: 1px solid var(--border-color); 
-            padding: 18px 20px; 
-            border-radius: 16px; 
-            color: white; 
-            margin-bottom: 25px; 
-            box-sizing: border-box; 
-            font-family: inherit; 
-            font-size: 15px; 
-            transition: 0.3s; 
-        }
-
-        input:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        input:focus { 
-            border-color: var(--primary); 
-            background: rgba(124, 58, 237, 0.05); 
-            outline: none; 
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
-        }
-
-        input::placeholder {
-            color: rgba(255, 255, 255, 0.2);
-        }
-
-        /* --- Button --- */
-        #btn-activate { 
-            margin-top: auto; 
-            padding: 22px; 
-            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); 
-            border: none; 
-            border-radius: 18px; 
-            color: white; 
-            font-weight: 800; 
-            cursor: pointer; 
-            transition: all 0.3s; 
-            font-size: 14px; 
-            letter-spacing: 2px; 
-            text-transform: uppercase;
-            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        #btn-activate::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(255,255,255,0.2), transparent);
-            opacity: 0;
-            transition: 0.3s;
-        }
-
-        #btn-activate:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(124, 58, 237, 0.5);
-        }
-
-        #btn-activate:hover::after { opacity: 1; }
-        #btn-activate:active { transform: translateY(0); }
-
-        /* --- Previews --- */
-        .preview-container { 
-            display: flex; 
-            justify-content: center; 
-            gap: 40px; 
-            align-items: center; 
-            margin-top: 20px; 
-            flex: 1; 
-        }
-
-        .preview-box { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            animation: fadeIn 0.5s ease;
-        }
-
-        .preview-label { 
-            font-size: 11px; 
-            font-weight: 800; 
-            color: var(--text-muted); 
-            margin-bottom: 20px; 
-            letter-spacing: 2px; 
-        }
-
-        .skin-circle { 
-            width: 140px; 
-            height: 140px; 
-            border-radius: 50%; 
-            border: 2px solid rgba(124, 58, 237, 0.3); 
-            overflow: hidden; 
-            background: #000; 
-            position: relative;
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
-            transition: 0.3s;
-        }
-
-        .skin-circle::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        .preview-box:hover .skin-circle {
-            border-color: #7c3aed;
-            box-shadow: 0 0 50px rgba(124, 58, 237, 0.3);
-            transform: scale(1.05);
-        }
-
-        .skin-circle img { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            opacity: 0; 
-            transition: 0.5s; 
-        }
-        
-        .skin-circle img.loaded { opacity: 1; }
-
-        /* --- Animations --- */
-        @keyframes slideIn { 
-            from { opacity: 0; transform: translateY(10px); filter: blur(5px); } 
-            to { opacity: 1; transform: translateY(0); filter: blur(0); } 
-        }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    </style>
-</head>
-<body>
-
+    const MENU_HTML = `
 <div id="eclipse-dashboard">
     <div class="side-bar">
-        <div class="logo">
-            <div class="logo-icon">E</div>
-            <span>ECLIPSE</span>
-        </div>
+        <div class="logo"><div class="logo-icon">E</div><span>ECLIPSE</span></div>
         <nav>
             <div class="nav-item active" onclick="window.eclipseTab('player', this)">PLAYER</div>
             <div class="nav-item" onclick="window.eclipseTab('dual', this)">DUAL</div>
@@ -334,415 +17,528 @@
             <div class="nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">SKIN PREVIEW</div>
         </nav>
     </div>
-
     <div class="main-content">
         <div id="tab-player" class="tab-page active">
             <h2>Player Config</h2>
-            <div class="subtitle">Manage your primary identity settings.</div>
-            
             <label>Main Nickname</label>
-            <input type="text" id="main-nick" placeholder="Enter Nickname..." autocomplete="off">
-            
+            <input type="text" id="main-nick" placeholder="Enter Nickname...">
             <label>Skin Asset URL</label>
-            <input type="text" id="main-skin" placeholder="Paste Skin URL (jpg/png)..." oninput="window.checkSkin(this.value, 'main')">
+            <input type="text" id="main-skin" placeholder="Paste Skin URL..." oninput="window.checkSkin(this.value, 'main')">
         </div>
-
         <div id="tab-dual" class="tab-page">
             <h2>Dual Identity</h2>
-            <div class="subtitle">Configure your secondary/minion appearance.</div>
-
             <label>Minion Nickname</label>
-            <input type="text" id="dual-nick" placeholder="Dual Nickname..." autocomplete="off">
-            
+            <input type="text" id="dual-nick" placeholder="Dual Nickname...">
             <label>Minion Skin Asset</label>
-            <input type="text" id="dual-skin" placeholder="Paste Skin URL (jpg/png)..." oninput="window.checkSkin(this.value, 'dual')">
+            <input type="text" id="dual-skin" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
         </div>
-
         <div id="tab-visuals" class="tab-page">
             <h2>Visuals v32.1</h2>
-            <div class="subtitle">System graphics and rendering options.</div>
-            
-            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <p style="color:#a78bfa; margin: 0 0 10px 0; font-weight: 700; font-size: 13px;">ACTIVE MODULES</p>
-                <ul style="margin: 0; padding-left: 20px; color: #8a8a9b; font-size: 13px; line-height: 1.6;">
-                    <li>Glass Containers Render</li>
-                    <li>Modal Fixes Patch</li>
-                    <li>Shadow Quality: Ultra</li>
-                </ul>
+            <p style="color:#666; font-size:14px;">Glass containers & Modal fixes active.</p>
+            <div style="margin-top:20px;">
+                <label style="color:#7c3aed; cursor:pointer; display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;"> Show Lines / Linhas
+                </label>
             </div>
         </div>
-
         <div id="tab-skin-preview" class="tab-page">
             <h2>Asset Previews</h2>
-            <div class="subtitle">Real-time rendering of selected assets.</div>
-
             <div class="preview-container">
                 <div class="preview-box">
                     <span class="preview-label">MAIN</span>
-                    <div class="skin-circle">
-                        <img id="preview-main-img" src="" alt="">
-                    </div>
+                    <div class="skin-circle"><img id="preview-main-img" src=""></div>
                 </div>
                 <div class="preview-box">
                     <span class="preview-label">DUAL</span>
-                    <div class="skin-circle">
-                        <img id="preview-dual-img" src="" alt="">
-                    </div>
+                    <div class="skin-circle"><img id="preview-dual-img" src=""></div>
                 </div>
             </div>
         </div>
-
-        <button id="btn-activate">INJECT SYSTEM</button>
+        <button id="btn-activate" onclick="window.eclipseInjectSystem()">INJECT SYSTEM</button>
     </div>
 </div>
-</body>
-</html>
     `;
 
     // =================================================================
-    // 2. CONFIGURAÇÕES E VARIÁVEIS GLOBAIS
+    // 2. LÓGICA ORIGINAL (COPIADA DO TEU FICHEIRO)
     // =================================================================
-    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/";
     
-    // Variáveis de Jogo
+    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/";
+    window.eclipse_showLines = true;
+
+    window.eclipseSkinBackups = new Map();
+    window.hiddenSkinPids = new Set();
+
+    let targetPid = null;
+    let contextMenu = null;
     let spectateTargetId = null;
     let eclipseSpectateTicker = null;
-    let selectedPlayerContext = null; // Jogador selecionado no clique direito
-    
-    // Variáveis de Gravação
-    let mediaRecorder = null;
-    let recordedChunks = [];
-    let isRecording = false;
+    window.eclipseModeActive = false;
 
-    // =================================================================
-    // 3. FERRAMENTAS DO SISTEMA (CORE)
-    // =================================================================
-
-    // Função Avançada de Deteção de Jogador (Mouse -> World)
-    const getPlayerUnderMouse = (screenX, screenY) => {
-        const game = window.game;
-        if (!game || !game.renderer || !game.camera) return null;
-
-        // Dimensões do Ecrã
-        const sw = game.renderer.width;
-        const sh = game.renderer.height;
-        
-        // Dados da Câmara
-        const camX = game.camera.position ? game.camera.position.x : game.camera.x;
-        const camY = game.camera.position ? game.camera.position.y : game.camera.y;
-        const scale = game.camera.scale ? (game.camera.scale.x || game.camera.scale) : 1;
-
-        // Converter posição do rato para Posição no Mundo (World Coordinates)
-        // Fórmula padrão para engines .io (Pixi/Canvas)
-        const worldX = (screenX - sw / 2) / scale + camX;
-        const worldY = (screenY - sh / 2) / scale + camY;
-
-        let closestPlayer = null;
-        let minDistance = Infinity;
-
-        // Iterar todos os jogadores para achar o mais próximo
-        const players = game.world ? (game.world.players || game.world.cells) : {};
-        
-        for (const id in players) {
-            const p = players[id];
-            // Ignorar a nós mesmos se quisermos (opcional)
-            // if (p.isMine) continue;
-
-            // Calcular distância euclidiana
-            const dist = Math.hypot(p.x - worldX, p.y - worldY);
-            
-            // Verifica se o clique foi "dentro" ou muito perto da célula
-            // Usamos o tamanho da célula (p.size) ou um valor fixo de tolerância
-            const hitBox = Math.max(p.size || 50, 100); 
-
-            if (dist < hitBox && dist < minDistance) {
-                minDistance = dist;
-                closestPlayer = { id: id, name: p.nickname || "Unknown Cell", obj: p };
-            }
-        }
-
-        return closestPlayer;
+    // Variáveis para o sistema de Decoy
+    let realCameraRefs = null;
+    let decoyCamera = {
+        position: { x: 0, y: 0 },
+        scale: { x: 1, y: 1, set: function(s) { this.x = s; this.y = s; } }
     };
 
-    // Notificações Toast
-    const showToast = (msg, type = 'info') => {
-        let container = document.getElementById('eclipse-toast-container');
-        if (!container) {
-            container = document.createElement('div');
+    // --- MOTOR DE REPLAY (DUAL ENGINE) ---
+    const REC_DURATION = 20000;
+    const REC_OFFSET = 10000;
+    let activeStream = null;
+    let isProcessing = false;
+
+    let recorders = [
+        { id: 0, rec: null, chunks: [], startTime: 0, timer: null },
+        { id: 1, rec: null, chunks: [], startTime: 0, timer: null }
+    ];
+
+    // --- UI UTILS ---
+    const showToast = (msg, isError = false) => {
+        let container = document.getElementById('eclipse-toast-container') || document.createElement('div');
+        if (!container.id) {
             container.id = 'eclipse-toast-container';
-            container.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999999; pointer-events:none; display:flex; flex-direction:column; gap:10px;";
+            container.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:2000001; pointer-events:none;";
             document.body.appendChild(container);
         }
         const toast = document.createElement('div');
-        const color = type === 'error' ? '#ef4444' : (type === 'rec' ? '#ef4444' : '#7c3aed');
-        toast.style.cssText = `background:rgba(10, 10, 15, 0.95); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 600; font-size: 14px; backdrop-filter:blur(5px); pointer-events:auto;`;
-        toast.innerHTML = (type === 'rec' ? "🔴 REC • " : "") + msg;
+        const borderColor = isError ? '#ef4444' : '#7c3aed';
+        toast.style.cssText = `background:#0a0a0f; border-left:4px solid ${borderColor}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; margin-top:10px; box-shadow:0 10px 30px #000; font-weight: 500; transition: opacity 0.5s;`;
+        toast.innerText = msg;
         container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
     };
 
-    // =================================================================
-    // 4. LÓGICA DO MENU (TAB SWITCHER & INJECT)
-    // =================================================================
+    const saveSkinToHistory = (url) => {
+        if (!url || !url.includes(VALID_SKIN_PREFIX)) return false;
+        let storedSkins = [];
+        try { const raw = localStorage.getItem('skins'); if(raw) storedSkins = JSON.parse(raw); } catch(e) { storedSkins = []; }
+        if(!Array.isArray(storedSkins)) storedSkins = [];
+        storedSkins = storedSkins.filter(s => s !== url);
+        storedSkins.unshift(url);
+        localStorage.setItem('skins', JSON.stringify(storedSkins));
+        localStorage.setItem('skinUrl', url);
+        return true;
+    };
 
+    // --- FUNÇÕES DE INTERFACE (ADAPTADAS AO NOVO HTML) ---
+
+    // 1. Aba de Navegação (Tab Switcher)
     window.eclipseTab = function(tabName, element) {
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-        if (element) element.classList.add('active');
+        // Se chamado via clique
+        if (element) {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+        }
+        // Se chamado via código (ex: 'player')
+        else {
+             // Tenta achar o botão correspondente se não for passado
+             const navs = document.querySelectorAll('.nav-item');
+             navs.forEach(n => {
+                 if(n.textContent.toLowerCase().includes(tabName)) n.classList.add('active');
+                 else n.classList.remove('active');
+             });
+        }
+
         document.querySelectorAll('.tab-page').forEach(page => page.classList.remove('active'));
         const targetTab = document.getElementById('tab-' + tabName);
         if(targetTab) targetTab.classList.add('active');
     };
 
+    // 2. Preview de Skin (Necessário para o novo HTML)
     window.checkSkin = function(url, type) {
         const previewTabNav = document.getElementById('nav-skin-tab');
         const imgElement = document.getElementById('preview-' + type + '-img');
         if (url && url.length > 10) {
             if(previewTabNav) { previewTabNav.classList.remove('hidden'); previewTabNav.style.display = 'flex'; }
-            if(imgElement) { imgElement.src = url; imgElement.onload = () => imgElement.classList.add('loaded'); }
-        }
-    };
-
-    window.openEclipseMenu = function() {
-        if(document.getElementById('eclipse-main-wrap')) return;
-        let wrap = document.createElement('div');
-        wrap.id = "eclipse-main-wrap";
-        wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);";
-        wrap.innerHTML = MENU_HTML;
-        document.body.appendChild(wrap);
-        setTimeout(() => {
-            const btn = document.getElementById('btn-activate');
-            if(btn) btn.onclick = window.eclipseInjectSystem;
-            wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); }
-        }, 100);
-    };
-
-    window.eclipseInjectSystem = () => {
-        const mainNick = document.getElementById('main-nick')?.value;
-        const mainSkin = document.getElementById('main-skin')?.value;
-        const dualNick = document.getElementById('dual-nick')?.value;
-        const dualSkin = document.getElementById('dual-skin')?.value;
-
-        if (mainNick) localStorage.setItem('nickname', mainNick);
-        if (mainSkin) localStorage.setItem('skinUrl', mainSkin);
-        
-        if (dualNick && window.game) {
-            if(!window.game.dualIdentity) window.game.dualIdentity = {};
-            window.game.dualIdentity.nickname = dualNick;
-            window.game.dualIdentity.skin = dualSkin;
-            showToast("Dual Identity & Main Settings Loaded");
-        } else {
-            showToast("Settings Applied Successfully");
-        }
-        
-        const menu = document.getElementById('eclipse-main-wrap');
-        if(menu) menu.remove();
-    };
-
-    // =================================================================
-    // 5. SISTEMA DE SPECTATE (VISUALIZADOR)
-    // =================================================================
-
-    window.startSpectate = (targetId, targetName) => {
-        const game = window.game;
-        if (!game) return;
-
-        spectateTargetId = targetId;
-        showToast(`Spectating: ${targetName}`);
-
-        // Criar o Botão de Stop Spectate (Estilo Original)
-        let hud = document.getElementById('eclipse-spec-hud');
-        if (!hud) {
-            hud = document.createElement('div');
-            hud.id = 'eclipse-spec-hud';
-            hud.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 25px; border-radius:30px; border:1px solid rgba(255,255,255,0.1); font-family:'Outfit', sans-serif; font-weight:600; cursor:pointer; z-index:999999; box-shadow:0 5px 20px rgba(0,0,0,0.5); display:flex; align-items:center; gap:10px; transition:0.3s;";
-            hud.onclick = window.stopSpectate;
-            document.body.appendChild(hud);
-        }
-        
-        // Atualiza o texto com o nome do jogador
-        hud.innerHTML = `<span style="color:#ef4444; font-size:10px;">●</span> STOP VIEWING: <span style="color:#7c3aed;">${targetName}</span> (ESC)`;
-
-        // Loop de câmara
-        if (eclipseSpectateTicker) clearInterval(eclipseSpectateTicker);
-        eclipseSpectateTicker = setInterval(() => {
-            // Se o alvo não existir (morreu ou desconectou), parar
-            if (!spectateTargetId || !game.world.players[spectateTargetId]) {
-                window.stopSpectate();
-                return;
+            if(imgElement) { 
+                imgElement.src = url; 
+                imgElement.onload = () => imgElement.classList.add('loaded');
+                imgElement.onerror = () => imgElement.classList.remove('loaded');
             }
-            
-            const t = game.world.players[spectateTargetId];
-            
-            // Força a câmara para a posição do alvo
-            if(game.camera) {
-                game.camera.position.x = t.x;
-                game.camera.position.y = t.y;
-                // Opcional: Ajustar zoom
-                // game.camera.scale = Math.max(game.camera.scale, 0.5); 
-            }
-        }, 16); // ~60fps
+        }
     };
 
+    // --- FUNÇÃO CRÍTICA: RESTAURAR CÂMARA (DO TEU CÓDIGO) ---
     window.stopSpectate = () => {
-        if (eclipseSpectateTicker) {
-            clearInterval(eclipseSpectateTicker);
+        const g = window.game;
+        window.eclipseModeActive = false;
+        spectateTargetId = null;
+
+        if (g && g.ticker && eclipseSpectateTicker) {
+            g.ticker.remove(eclipseSpectateTicker);
             eclipseSpectateTicker = null;
         }
-        spectateTargetId = null;
-        
-        const game = window.game;
-        // Tenta devolver o foco ao nosso jogador
-        if (game && game.myPlayer && game.camera) {
-            game.camera.target = game.myPlayer; 
+
+        if (g && g.camera && realCameraRefs) {
+            g.camera.position = realCameraRefs.position;
+            g.camera.scale = realCameraRefs.scale;
+            realCameraRefs = null;
+            console.log("[ECLIPSE] Camera control returned to game.");
         }
 
-        const hud = document.getElementById('eclipse-spec-hud');
-        if (hud) hud.remove();
+        const btn = document.getElementById('eclipse-stop-spectate');
+        if (btn) btn.remove();
+        showToast("Camera Reset.");
+    };
+
+    // --- SISTEMA DE INJEÇÃO (AJUSTADO PARA LER O NOVO HTML) ---
+    window.eclipseInjectSystem = () => {
+        console.log("[ECLIPSE] Applying Configuration...");
+        const wrap = document.getElementById('eclipse-main-wrap');
         
-        showToast("Camera Reset");
-    };
+        // IDs atualizados conforme o teu novo index.html
+        const mainNick = document.getElementById('main-nick')?.value.trim();
+        const mainSkin = document.getElementById('main-skin')?.value.trim();
+        const dualNick = document.getElementById('dual-nick')?.value.trim();
+        const dualSkin = document.getElementById('dual-skin')?.value.trim();
 
-    // =================================================================
-    // 6. CLIP SYSTEM (GRAVADOR)
-    // =================================================================
-
-    window.toggleRecording = () => {
-        if (isRecording) {
-            if(mediaRecorder) mediaRecorder.stop();
-            isRecording = false;
-        } else {
-            const canvas = document.querySelector('canvas');
-            if (!canvas) return showToast("Game Canvas not found", 'error');
-
-            const stream = canvas.captureStream(60);
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-            recordedChunks = [];
-
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Eclipse_Clip_${new Date().toLocaleTimeString().replace(/:/g,'-')}.webm`;
-                a.click();
-                window.URL.revokeObjectURL(url);
-                showToast("Clip Saved to Downloads!", 'info');
-            };
-
-            mediaRecorder.start();
-            isRecording = true;
-            showToast("Recording Started...", 'rec');
-        }
-    };
-
-    // =================================================================
-    // 7. CONTEXT MENU & INPUTS (BOTÃO DIREITO AUTOMÁTICO)
-    // =================================================================
-
-    const createContextMenu = () => {
-        const menu = document.createElement('div');
-        menu.id = 'eclipse-ctx-menu';
-        menu.style.cssText = `
-            display: none; position: fixed; z-index: 1000000;
-            background: rgba(5, 5, 7, 0.95); backdrop-filter: blur(12px);
-            border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 12px;
-            padding: 6px; width: 200px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-            font-family: 'Outfit', sans-serif;
-        `;
-        document.body.appendChild(menu);
-        return menu;
-    };
-
-    // Atualiza o conteúdo do menu baseado em quem clicaste
-    const updateContextMenu = (menu, player) => {
-        menu.innerHTML = ''; // Limpa
-        
-        // Cabeçalho com nome do jogador
-        const header = document.createElement('div');
-        header.style.cssText = "padding: 8px 12px; font-size: 11px; color: #8a8a9b; font-weight: 800; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 5px; text-transform:uppercase;";
-        header.innerText = player ? player.name : "GLOBAL OPTIONS";
-        menu.appendChild(header);
-
-        // Opções
-        const options = [];
-
-        if (player) {
-            // Se clicou num jogador
-            options.push({ label: 'Spectate Player', icon: '👁️', action: () => window.startSpectate(player.id, player.name) });
-            options.push({ label: 'Copy Nickname', icon: '📝', action: () => { navigator.clipboard.writeText(player.name); showToast("Copied Nick"); } });
-            options.push({ label: 'Copy ID', icon: '🆔', action: () => { navigator.clipboard.writeText(player.id); showToast("Copied ID"); } });
-        } else {
-            // Se clicou no vazio (fundo)
-            options.push({ label: 'Reset Camera', icon: '🔄', action: () => window.stopSpectate() });
-            options.push({ label: 'Open Menu', icon: '⚙️', action: () => window.openEclipseMenu() });
+        // 1. APLICAR MAIN
+        if (mainNick) {
+            const gameNickInput = document.getElementById('nickname');
+            if (gameNickInput) {
+                gameNickInput.value = mainNick;
+                gameNickInput.dispatchEvent(new Event('input', { bubbles: true }));
+                localStorage.setItem('nickname', mainNick);
+            }
         }
 
-        // Renderiza botões
-        options.forEach(opt => {
-            const item = document.createElement('div');
-            item.innerHTML = `<span style="width:20px; text-align:center;">${opt.icon}</span> ${opt.label}`;
-            item.style.cssText = "padding: 10px 12px; color: #e2e8f0; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s;";
-            item.onmouseover = () => { item.style.background = "rgba(124, 58, 237, 0.15)"; item.style.color = "white"; };
-            item.onmouseout = () => { item.style.background = "transparent"; item.style.color = "#e2e8f0"; };
-            item.onclick = () => {
-                opt.action();
-                menu.style.display = 'none';
-            };
-            menu.appendChild(item);
+        if (mainSkin && mainSkin.includes(VALID_SKIN_PREFIX)) {
+            const gameSkinInput = document.getElementById('skinurl');
+            if (gameSkinInput) {
+                gameSkinInput.value = mainSkin;
+                gameSkinInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            saveSkinToHistory(mainSkin);
+        }
+
+        // 2. APLICAR DUAL
+        if (dualNick) {
+            localStorage.setItem('dualNickname', dualNick);
+            if (window.game?.dualIdentity) window.game.dualIdentity.nickname = dualNick;
+        }
+
+        if (dualSkin && dualSkin.includes(VALID_SKIN_PREFIX)) {
+            localStorage.setItem('dualSkinUrl', dualSkin);
+            if (window.game?.dualIdentity) window.game.dualIdentity.skin = dualSkin;
+        }
+
+        // 3. ENVIAR PACOTES
+        if (window.game && typeof window.game.sendDualIdentity === 'function') {
+            window.game.sendDualIdentity();
+        }
+        
+        showToast("Identity Injected! 💉");
+        if(wrap) wrap.remove();
+    };
+
+    // --- LÓGICA DE VÍDEO (DO TEU CÓDIGO) ---
+    const findGameCanvas = () => {
+        const canvases = document.querySelectorAll('canvas');
+        if (canvases.length === 0) return null;
+        let largestCanvas = null;
+        let maxArea = 0;
+        canvases.forEach(cvs => {
+            const area = cvs.width * cvs.height;
+            if (area > maxArea && cvs.style.display !== 'none' && cvs.width > 100) {
+                maxArea = area;
+                largestCanvas = cvs;
+            }
         });
+        return largestCanvas;
     };
 
-    // Event Listener Botão Direito
-    window.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
+    const initDualRecordingSystem = () => {
+        const canvas = findGameCanvas();
+        if (!canvas) { setTimeout(initDualRecordingSystem, 1000); return; }
+
+        try {
+            activeStream = canvas.captureStream(60);
+            startSingleRecorder(0);
+            setTimeout(() => { startSingleRecorder(1); }, REC_OFFSET);
+        } catch (e) { setTimeout(initDualRecordingSystem, 2000); }
+    };
+
+    const startSingleRecorder = (idx) => {
+        if (!activeStream) return;
+        let mimeType = 'video/webm';
+        if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mimeType = "video/webm;codecs=vp9";
+        else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mimeType = "video/webm;codecs=vp8";
+
+        const rObj = recorders[idx];
+        rObj.chunks = [];
+        rObj.startTime = Date.now();
+        if (rObj.timer) clearTimeout(rObj.timer);
+        try {
+            rObj.rec = new MediaRecorder(activeStream, { mimeType: mimeType, videoBitsPerSecond: 6000000 });
+            rObj.rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) rObj.chunks.push(e.data); };
+            rObj.rec.onstop = () => { if (!isProcessing) startSingleRecorder(idx); };
+            rObj.rec.start(1000);
+            rObj.timer = setTimeout(() => {
+                if (rObj.rec.state !== 'inactive' && !isProcessing) rObj.rec.stop();
+            }, REC_DURATION);
+        } catch (e) { console.error(`Recorder ${idx} error:`, e); }
+    };
+
+    const saveBlob = (chunks) => {
+        try {
+            const blob = new Blob(chunks, { type: "video/webm" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            document.body.appendChild(a);
+            a.style = "display: none";
+            a.href = url;
+            a.download = `Eclipse-${Date.now()}.webm`;
+            a.click();
+            showToast("Clip Saved! ♻️");
+            setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
+        } catch(e) { showToast("Save Failed ❌", true); }
+    };
+
+    const triggerSave = () => {
+        if (isProcessing) return showToast("System Busy... ⚠️", true);
+        if (!recorders[0].rec && !recorders[1].rec) {
+            initDualRecordingSystem();
+            return showToast("Initializing... Try again in 5s ⏳", true);
+        }
+        isProcessing = true;
+        const now = Date.now();
+        const dur0 = now - recorders[0].startTime;
+        const dur1 = now - recorders[1].startTime;
+        let targetIdx = (dur0 > dur1) ? 0 : 1;
+        if (recorders[targetIdx].chunks.length === 0) targetIdx = targetIdx === 0 ? 1 : 0;
+
+        const target = recorders[targetIdx];
+        const clipLength = Math.round((now - target.startTime) / 1000);
+        showToast(`Processing Clip (${clipLength}s)... 🎬`);
+        target.rec.onstop = () => {
+            saveBlob(target.chunks);
+            isProcessing = false;
+            startSingleRecorder(targetIdx);
+        };
+        target.rec.stop();
+        if (target.timer) clearTimeout(target.timer);
+    };
+
+    // --- 3. LÓGICA DE JOGO (DO TEU CÓDIGO) ---
+    const getTargetNode = (pid) => {
+        if (window.game && window.game.nodelist) return window.game.nodelist.find(n => n.pid === pid);
+        return null;
+    };
+    const getRealSkinUrl = (pid) => {
+        if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
+        const node = getTargetNode(pid);
+        const pManager = window.game?.playerManager?.players?.[pid];
+        if (pManager && pManager.skin) return pManager.skin;
+        if (pManager && pManager.skinUrl) return pManager.skinUrl;
+        if (node && node.skin) return node.skin;
+        return null;
+    };
+
+    const simulateContext = (pid) => {
+        const selector = `.message-from[data-pid="${pid}"]`;
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+            const targetEl = elements[elements.length - 1];
+            const ev = new MouseEvent('contextmenu', {
+                bubbles: true, cancelable: true, view: window, buttons: 2,
+                clientX: targetEl.getBoundingClientRect().x,
+                clientY: targetEl.getBoundingClientRect().y
+            });
+            targetEl.dispatchEvent(ev);
+            return true;
+        }
+        return false;
+    };
+
+    const injectSystemMessage = async (pid, pName) => {
+        const chatEl = document.getElementById('chatbox');
+        if (!chatEl || !chatEl.__vue__) return false;
+        const vm = chatEl.__vue__;
+        let msgArrayKey = vm.messages ? 'messages' : null;
+        if (!msgArrayKey) return false;
+        const ghostMsg = { name: pName || "Player", pid: pid, message: ".", isGhost: true, time: Date.now() };
+        vm[msgArrayKey].push(ghostMsg);
+        new Promise(r => setTimeout(r, 50));
+        const clicked = simulateContext(pid);
+        if (clicked) {
+            const idx = vm[msgArrayKey].indexOf(ghostMsg);
+            if (idx > -1) vm[msgArrayKey].splice(idx, 1);
+        }
+        return clicked;
+    };
+
+    const openProfileMenu = async (pid, pName) => {
+        if (simulateContext(pid)) { showToast("Menu Opened (Chat)"); return; }
+        showToast("Injecting Menu...", false);
+        const success = injectSystemMessage(pid, pName);
+        if (success) showToast("Menu Opened ✨");
+        else showToast("Could not open menu", true);
+    };
+
+    // FUNÇÕES DO CONTEXT MENU (AS TUAS, ORIGINAIS)
+    window.eclipseAction = async (type) => {
+        if (targetPid === null) return;
+        const g = window.game;
+        const pManager = g?.playerManager?.players?.[targetPid];
+        const pName = pManager?.name || "Player";
+        const skinUrl = getRealSkinUrl(targetPid);
+        switch(type) {
+            case 'spectate': {
+                if (window.eclipseModeActive) window.stopSpectate();
+                window.eclipseModeActive = true;
+                spectateTargetId = targetPid;
+                realCameraRefs = { position: g.camera.position, scale: g.camera.scale };
+                g.camera.position = decoyCamera.position;
+                g.camera.scale = decoyCamera.scale;
+                const btn = document.createElement('button');
+                btn.id = 'eclipse-stop-spectate';
+                btn.innerHTML = `❌ STOP VIEW (${pName})`;
+                btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit';";
+                btn.onclick = window.stopSpectate;
+                document.body.appendChild(btn);
+                eclipseSpectateTicker = () => {
+                    if (!spectateTargetId || !window.eclipseModeActive || !realCameraRefs) return;
+                    const nodes = g.nodelist.filter(n => n.pid === spectateTargetId);
+                    if (nodes.length > 0) {
+                        let tx = 0, ty = 0, tMass = 0;
+                        for (const n of nodes) { const m = n.size * n.size; tx += n.x * m; ty += n.y * m; tMass += m; }
+                        if (tMass > 0) {
+                            const finalX = tx / tMass;
+                            const finalY = ty / tMass;
+                            realCameraRefs.position.x += (finalX - realCameraRefs.position.x) * 0.15;
+                            realCameraRefs.position.y += (finalY - realCameraRefs.position.y) * 0.15;
+                            const targetZoom = g.zoom || 0.1;
+                            const zoomSmooth = (g.settings && g.settings.cameraZoomSmoothing) ? g.settings.cameraZoomSmoothing : 0.14;
+                            realCameraRefs.scale.set(realCameraRefs.scale.x + (targetZoom - realCameraRefs.scale.x) * zoomSmooth);
+                            g.center.x = finalX; g.center.y = finalY;
+                        }
+                    }
+                };
+                if (g.ticker) g.ticker.add(eclipseSpectateTicker);
+                break;
+            }
+            case 'block': { openProfileMenu(targetPid, pName); break; }
+            case 'hide': { window.hiddenSkinPids.add(targetPid); if (skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Hidden"); break; }
+            case 'show': { window.hiddenSkinPids.delete(targetPid); showToast("Skin Shown"); break; }
+            case 'yoink': { if (skinUrl) saveSkinToHistory(skinUrl) && showToast("Skin Saved! 💾"); else showToast("No skin found", true); break; }
+            case 'copy': { if(skinUrl) { navigator.clipboard.writeText(skinUrl); showToast("Copied!"); } break; }
+        }
+        contextMenu.style.display = 'none';
+    };
+
+    // ABERTURA DO MENU (USA O HTML LOCAL)
+    window.openEclipseMenu = function() {
+        if(document.getElementById('eclipse-main-wrap')) return;
+
+        let wrap = document.createElement('div');
+        wrap.id = "eclipse-main-wrap";
+        wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); font-family: sans-serif;";
         
-        // 1. Calcular quem está debaixo do rato
-        const target = getPlayerUnderMouse(e.clientX, e.clientY);
-        selectedPlayerContext = target;
+        // AQUI ESTÁ O TEU NOVO HTML INJETADO DIRETAMENTE
+        wrap.innerHTML = MENU_HTML;
+        document.body.appendChild(wrap);
 
-        // 2. Criar/Atualizar Menu
-        const menu = document.getElementById('eclipse-ctx-menu') || createContextMenu();
-        updateContextMenu(menu, target);
+        // Configuração do botão Toggle Lines no novo menu
+        setTimeout(() => {
+            const toggle = document.getElementById('eclipse-lines-toggle');
+            if(toggle) {
+                toggle.checked = window.eclipse_showLines;
+                toggle.onchange = (e) => window.eclipse_showLines = e.target.checked;
+            }
+        }, 100);
 
-        // 3. Posicionar e Mostrar
-        menu.style.display = 'block';
-        menu.style.left = e.clientX + 'px';
-        menu.style.top = e.clientY + 'px';
-    });
+        // Botão de fechar (se houver, mas o Inject já fecha)
+        const closeBtn = wrap.querySelector('#btn-close'); 
+        if(closeBtn) closeBtn.onclick = () => { wrap.remove(); };
+    };
 
-    // Fechar ao clicar fora
-    window.addEventListener('click', (e) => {
-        const menu = document.getElementById('eclipse-ctx-menu');
-        if (menu && !menu.contains(e.target)) menu.style.display = 'none';
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'KeyR' && !e.repeat && document.activeElement.tagName !== 'INPUT') window.toggleRecording();
-        if (e.code === 'Escape') window.stopSpectate();
-    });
-
-    // =================================================================
-    // 8. INICIALIZAÇÃO
-    // =================================================================
+    const setupLines = () => {
+        let canvas = document.getElementById('eclipse-lines-canvas') || document.createElement('canvas');
+        canvas.id = 'eclipse-lines-canvas';
+        canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;";
+        if (!canvas.parentElement) document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const draw = () => {
+            const g = window.game;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            if (!window.eclipse_showLines || !g?.camera || !g?.nodelist) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                requestAnimationFrame(draw); return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const activeId = g.activePid || g.playerId;
+            const mouse = g.rawMouse || {x: innerWidth/2, y: innerHeight/2};
+            ctx.beginPath();
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"; ctx.lineWidth = 1.5;
+            for (let n of g.nodelist) {
+                if (n && n.pid === activeId && !n.isDead) {
+                    const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
+                    const s = cam.scale.x;
+                    const sx = (n.x - cam.position.x) * s + (innerWidth / 2);
+                    const sy = (n.y - cam.position.y) * s + (innerHeight / 2);
+                    ctx.moveTo(sx, sy); ctx.lineTo(mouse.x, mouse.y);
+                }
+            }
+            ctx.stroke();
+            requestAnimationFrame(draw);
+        };
+        draw();
+    };
 
     const init = () => {
-        // Botão flutuante
+        contextMenu = document.createElement('div');
+        contextMenu.id = 'eclipse-ctx-menu';
+        contextMenu.style.cssText = "position:fixed; z-index:1000001; background:#0a0a0f; border:1px solid #7c3aed; border-radius:12px; width:220px; display:none; font-family:'Outfit', sans-serif; overflow:hidden; box-shadow:0 10px 40px #000;";
+        document.body.appendChild(contextMenu);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.altKey && e.code === 'KeyC') { e.preventDefault(); triggerSave(); }
+        });
+
+        // DETEÇÃO DE JOGADORES (TUA LÓGICA ORIGINAL)
+        window.addEventListener('contextmenu', (e) => {
+            const g = window.game;
+            if (!g?.nodelist) return;
+            // Deteção baseada na distância do rato (original do teu código)
+            const found = g.nodelist.find(n => n.pid !== g.playerId && Math.sqrt((n.x-g.mouse.x)**2 + (n.y-g.mouse.y)**2) < n.size);
+
+            if (found) {
+                e.preventDefault();
+                targetPid = found.pid;
+                const isHidden = window.hiddenSkinPids.has(targetPid);
+                const pName = (g.playerManager?.players[targetPid]?.name) || "Player";
+                contextMenu.innerHTML = `
+                    <div style="background:#7c3aed; color:white; padding:12px; font-weight:bold; text-align:center;">${pName}</div>
+                    <div style="padding:6px; color:#eee; cursor:pointer;">
+                        <div id="ctx-spectate" style="padding:10px;">Spectate 🔭</div>
+                        <div id="ctx-block" style="padding:10px; color:#ff4444;">Block/Profile ⚙️</div>
+                        <div style="height:1px; background:#ffffff22; margin:4px;"></div>
+                        ${isHidden ? `<div id="ctx-show" style="padding:10px;">Show Skin ✨</div>` : `<div id="ctx-hide" style="padding:10px;">Hide Skin 👁️</div>`}
+                        <div id="ctx-yoink" style="padding:10px;">Yoink Skin 💎</div>
+                        <div id="ctx-copy" style="padding:10px;">Copy URL 🔗</div>
+                    </div>`;
+                const actions = { 'ctx-spectate': 'spectate', 'ctx-block': 'block', 'ctx-show': 'show', 'ctx-hide': 'hide', 'ctx-yoink': 'yoink', 'ctx-copy': 'copy' };
+                for (const [id, action] of Object.entries(actions)) {
+                    const el = document.getElementById(id);
+                    if (el) el.onclick = () => window.eclipseAction(action);
+                }
+                contextMenu.style.display = 'block';
+                contextMenu.style.left = e.clientX + 'px'; contextMenu.style.top = e.clientY + 'px';
+            } else { contextMenu.style.display = 'none'; }
+        });
+
         const trig = document.createElement('div');
-        trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:linear-gradient(135deg, #7c3aed, #4c1d95); border:1px solid rgba(255,255,255,0.2); border-radius:12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; box-shadow:0 10px 20px rgba(0,0,0,0.5); transition:0.3s;";
+        trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:rgba(124,58,237,0.5); border:1px solid #7c3aed; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;";
         trig.innerHTML = `<div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div>`;
-        trig.onclick = window.openEclipseMenu;
-        trig.onmouseover = () => trig.style.transform = "scale(1.1)";
-        trig.onmouseout = () => trig.style.transform = "scale(1)";
+        trig.onclick = openEclipseMenu;
         document.body.appendChild(trig);
+        
+        window.addEventListener('click', () => contextMenu.style.display = 'none');
+        setupLines();
+        initDualRecordingSystem();
 
-        // Abre o menu uma vez para confirmar carregamento
-        setTimeout(window.openEclipseMenu, 800);
+        setTimeout(openEclipseMenu, 1000);
     };
-
-    // Verificar se o jogo já carregou ou esperar
-    if (document.readyState === 'complete') init();
-    else window.addEventListener('load', init);
-
+    init();
 })();
