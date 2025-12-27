@@ -1,13 +1,12 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v45.0 System Loaded - Full Features");
+    console.log("[ECLIPSE] v50.0 - Full Kernel Access");
 
     // =================================================================
-    // 1. ÁREA DO DESIGN (UI)
+    // 1. DESIGN (INTERFACE)
     // =================================================================
     
-    // Cola o teu HTML NOVO dentro das crases abaixo.
     const MENU_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -401,26 +400,71 @@
     `;
 
     // =================================================================
-    // 2. VARIÁVEIS DO SISTEMA
+    // 2. CONFIGURAÇÕES E VARIÁVEIS GLOBAIS
     // =================================================================
-    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/"; // Ajusta se for outro servidor
-    window.eclipse_showLines = true;
+    const VALID_SKIN_PREFIX = "https://skins.aetlis.io/s/";
     
     // Variáveis de Jogo
     let spectateTargetId = null;
     let eclipseSpectateTicker = null;
-    let realCameraRefs = null; // Para guardar a posição original da câmara
+    let selectedPlayerContext = null; // Jogador selecionado no clique direito
     
-    // Variáveis de Gravação (Clip)
+    // Variáveis de Gravação
     let mediaRecorder = null;
     let recordedChunks = [];
     let isRecording = false;
 
     // =================================================================
-    // 3. UI & MENU PRINCIPAL
+    // 3. FERRAMENTAS DO SISTEMA (CORE)
     // =================================================================
 
-    // Função para mostrar notificações (Toasts)
+    // Função Avançada de Deteção de Jogador (Mouse -> World)
+    const getPlayerUnderMouse = (screenX, screenY) => {
+        const game = window.game;
+        if (!game || !game.renderer || !game.camera) return null;
+
+        // Dimensões do Ecrã
+        const sw = game.renderer.width;
+        const sh = game.renderer.height;
+        
+        // Dados da Câmara
+        const camX = game.camera.position ? game.camera.position.x : game.camera.x;
+        const camY = game.camera.position ? game.camera.position.y : game.camera.y;
+        const scale = game.camera.scale ? (game.camera.scale.x || game.camera.scale) : 1;
+
+        // Converter posição do rato para Posição no Mundo (World Coordinates)
+        // Fórmula padrão para engines .io (Pixi/Canvas)
+        const worldX = (screenX - sw / 2) / scale + camX;
+        const worldY = (screenY - sh / 2) / scale + camY;
+
+        let closestPlayer = null;
+        let minDistance = Infinity;
+
+        // Iterar todos os jogadores para achar o mais próximo
+        const players = game.world ? (game.world.players || game.world.cells) : {};
+        
+        for (const id in players) {
+            const p = players[id];
+            // Ignorar a nós mesmos se quisermos (opcional)
+            // if (p.isMine) continue;
+
+            // Calcular distância euclidiana
+            const dist = Math.hypot(p.x - worldX, p.y - worldY);
+            
+            // Verifica se o clique foi "dentro" ou muito perto da célula
+            // Usamos o tamanho da célula (p.size) ou um valor fixo de tolerância
+            const hitBox = Math.max(p.size || 50, 100); 
+
+            if (dist < hitBox && dist < minDistance) {
+                minDistance = dist;
+                closestPlayer = { id: id, name: p.nickname || "Unknown Cell", obj: p };
+            }
+        }
+
+        return closestPlayer;
+    };
+
+    // Notificações Toast
     const showToast = (msg, type = 'info') => {
         let container = document.getElementById('eclipse-toast-container');
         if (!container) {
@@ -429,19 +473,18 @@
             container.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999999; pointer-events:none; display:flex; flex-direction:column; gap:10px;";
             document.body.appendChild(container);
         }
-        
         const toast = document.createElement('div');
         const color = type === 'error' ? '#ef4444' : (type === 'rec' ? '#ef4444' : '#7c3aed');
-        toast.style.cssText = `background:rgba(10, 10, 15, 0.9); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 500; transition: opacity 0.3s; pointer-events:auto; backdrop-filter:blur(5px);`;
-        
-        if(type === 'rec') toast.innerHTML = "🔴 REC • " + msg;
-        else toast.innerText = msg;
-        
+        toast.style.cssText = `background:rgba(10, 10, 15, 0.95); border-left:4px solid ${color}; color:#fff; padding:12px 25px; border-radius:8px; font-family:'Outfit', sans-serif; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-weight: 600; font-size: 14px; backdrop-filter:blur(5px); pointer-events:auto;`;
+        toast.innerHTML = (type === 'rec' ? "🔴 REC • " : "") + msg;
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     };
 
-    // Lógica das Abas do Menu
+    // =================================================================
+    // 4. LÓGICA DO MENU (TAB SWITCHER & INJECT)
+    // =================================================================
+
     window.eclipseTab = function(tabName, element) {
         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -450,7 +493,6 @@
         if(targetTab) targetTab.classList.add('active');
     };
 
-    // Preview de Skins
     window.checkSkin = function(url, type) {
         const previewTabNav = document.getElementById('nav-skin-tab');
         const imgElement = document.getElementById('preview-' + type + '-img');
@@ -460,15 +502,13 @@
         }
     };
 
-    // Abrir o Menu Principal
     window.openEclipseMenu = function() {
         if(document.getElementById('eclipse-main-wrap')) return;
         let wrap = document.createElement('div');
         wrap.id = "eclipse-main-wrap";
-        wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px);";
+        wrap.style.cssText = "position:fixed; inset:0; z-index:9999999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);";
         wrap.innerHTML = MENU_HTML;
         document.body.appendChild(wrap);
-
         setTimeout(() => {
             const btn = document.getElementById('btn-activate');
             if(btn) btn.onclick = window.eclipseInjectSystem;
@@ -476,7 +516,6 @@
         }, 100);
     };
 
-    // Injetar Configurações (Do botão "INJECT SYSTEM")
     window.eclipseInjectSystem = () => {
         const mainNick = document.getElementById('main-nick')?.value;
         const mainSkin = document.getElementById('main-skin')?.value;
@@ -484,16 +523,15 @@
         const dualSkin = document.getElementById('dual-skin')?.value;
 
         if (mainNick) localStorage.setItem('nickname', mainNick);
-        if (mainSkin) localStorage.setItem('skinUrl', mainSkin); // Simplificado
+        if (mainSkin) localStorage.setItem('skinUrl', mainSkin);
         
-        // Simulação de injeção Dual
         if (dualNick && window.game) {
             if(!window.game.dualIdentity) window.game.dualIdentity = {};
             window.game.dualIdentity.nickname = dualNick;
             window.game.dualIdentity.skin = dualSkin;
-            showToast("Dual Identity Configured");
+            showToast("Dual Identity & Main Settings Loaded");
         } else {
-            showToast("System Settings Applied");
+            showToast("Settings Applied Successfully");
         }
         
         const menu = document.getElementById('eclipse-main-wrap');
@@ -501,52 +539,48 @@
     };
 
     // =================================================================
-    // 4. SISTEMA DE SPECTATE (CÂMARA)
+    // 5. SISTEMA DE SPECTATE (VISUALIZADOR)
     // =================================================================
 
-    window.startSpectate = (targetId) => {
-        const game = window.game; // Assume que a variável global do jogo é 'game'
-        if (!game || !game.world || !game.world.players) return showToast("Game not found", 'error');
-
-        const target = game.world.players[targetId];
-        if (!target) return showToast("Player not found", 'error');
-
-        // Guardar referência da câmara real
-        if (!realCameraRefs && game.camera) {
-            realCameraRefs = { 
-                target: game.camera.target,
-                position: { x: game.camera.position.x, y: game.camera.position.y }
-            };
-        }
+    window.startSpectate = (targetId, targetName) => {
+        const game = window.game;
+        if (!game) return;
 
         spectateTargetId = targetId;
-        showToast(`Spectating: ${target.nickname || 'Player'}`);
+        showToast(`Spectating: ${targetName}`);
 
-        // Loop de atualização da câmara
-        if (eclipseSpectateTicker) clearInterval(eclipseSpectateTicker);
+        // Criar o Botão de Stop Spectate (Estilo Original)
+        let hud = document.getElementById('eclipse-spec-hud');
+        if (!hud) {
+            hud = document.createElement('div');
+            hud.id = 'eclipse-spec-hud';
+            hud.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 25px; border-radius:30px; border:1px solid rgba(255,255,255,0.1); font-family:'Outfit', sans-serif; font-weight:600; cursor:pointer; z-index:999999; box-shadow:0 5px 20px rgba(0,0,0,0.5); display:flex; align-items:center; gap:10px; transition:0.3s;";
+            hud.onclick = window.stopSpectate;
+            document.body.appendChild(hud);
+        }
         
+        // Atualiza o texto com o nome do jogador
+        hud.innerHTML = `<span style="color:#ef4444; font-size:10px;">●</span> STOP VIEWING: <span style="color:#7c3aed;">${targetName}</span> (ESC)`;
+
+        // Loop de câmara
+        if (eclipseSpectateTicker) clearInterval(eclipseSpectateTicker);
         eclipseSpectateTicker = setInterval(() => {
+            // Se o alvo não existir (morreu ou desconectou), parar
             if (!spectateTargetId || !game.world.players[spectateTargetId]) {
                 window.stopSpectate();
                 return;
             }
+            
             const t = game.world.players[spectateTargetId];
+            
+            // Força a câmara para a posição do alvo
             if(game.camera) {
-                game.camera.position.x = t.position.x;
-                game.camera.position.y = t.position.y;
+                game.camera.position.x = t.x;
+                game.camera.position.y = t.y;
+                // Opcional: Ajustar zoom
+                // game.camera.scale = Math.max(game.camera.scale, 0.5); 
             }
-        }, 1000 / 60); // 60 FPS
-        
-        // Adiciona botão para parar
-        let stopBtn = document.getElementById('eclipse-stop-spec');
-        if(!stopBtn) {
-            stopBtn = document.createElement('div');
-            stopBtn.id = 'eclipse-stop-spec';
-            stopBtn.innerText = "STOP SPECTATE (ESC)";
-            stopBtn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); background:red; color:white; padding:10px 20px; font-weight:bold; border-radius:8px; cursor:pointer; z-index:99999;";
-            stopBtn.onclick = window.stopSpectate;
-            document.body.appendChild(stopBtn);
-        }
+        }, 16); // ~60fps
     };
 
     window.stopSpectate = () => {
@@ -556,51 +590,44 @@
         }
         spectateTargetId = null;
         
-        // Tentar devolver a câmara ao jogador
         const game = window.game;
+        // Tenta devolver o foco ao nosso jogador
         if (game && game.myPlayer && game.camera) {
-            game.camera.target = game.myPlayer; // Re-focar no meu player
+            game.camera.target = game.myPlayer; 
         }
 
-        const btn = document.getElementById('eclipse-stop-spec');
-        if (btn) btn.remove();
+        const hud = document.getElementById('eclipse-spec-hud');
+        if (hud) hud.remove();
+        
         showToast("Camera Reset");
     };
 
     // =================================================================
-    // 5. SISTEMA DE CLIP (GRAVAÇÃO)
+    // 6. CLIP SYSTEM (GRAVADOR)
     // =================================================================
 
     window.toggleRecording = () => {
         if (isRecording) {
-            // Parar Gravação
-            mediaRecorder.stop();
+            if(mediaRecorder) mediaRecorder.stop();
             isRecording = false;
-            showToast("Processing Clip...", 'info');
         } else {
-            // Iniciar Gravação
             const canvas = document.querySelector('canvas');
-            if (!canvas) return showToast("Canvas not found", 'error');
+            if (!canvas) return showToast("Game Canvas not found", 'error');
 
             const stream = canvas.captureStream(60);
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
             recordedChunks = [];
 
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.style.display = 'none';
                 a.href = url;
-                a.download = `eclipse_clip_${Date.now()}.webm`;
-                document.body.appendChild(a);
+                a.download = `Eclipse_Clip_${new Date().toLocaleTimeString().replace(/:/g,'-')}.webm`;
                 a.click();
-                setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
-                showToast("Clip Saved!", 'info');
+                window.URL.revokeObjectURL(url);
+                showToast("Clip Saved to Downloads!", 'info');
             };
 
             mediaRecorder.start();
@@ -610,127 +637,112 @@
     };
 
     // =================================================================
-    // 6. CONTEXT MENU (BOTÃO DIREITO)
+    // 7. CONTEXT MENU & INPUTS (BOTÃO DIREITO AUTOMÁTICO)
     // =================================================================
 
-    // Cria o HTML do Context Menu
     const createContextMenu = () => {
         const menu = document.createElement('div');
         menu.id = 'eclipse-ctx-menu';
         menu.style.cssText = `
             display: none; position: fixed; z-index: 1000000;
-            background: rgba(13, 13, 16, 0.9); backdrop-filter: blur(10px);
-            border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 12px;
-            padding: 8px; width: 180px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            background: rgba(5, 5, 7, 0.95); backdrop-filter: blur(12px);
+            border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 12px;
+            padding: 6px; width: 200px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            font-family: 'Outfit', sans-serif;
         `;
-        
-        const options = [
-            { label: 'Spectate Player', action: 'spectate', icon: '👁️' },
-            { label: 'Copy Nickname', action: 'copy', icon: '📝' },
-            { label: 'Copy ID', action: 'copyid', icon: '🆔' },
-            { label: 'Close Menu', action: 'close', icon: '❌' }
-        ];
-
-        options.forEach(opt => {
-            const item = document.createElement('div');
-            item.innerHTML = `<span>${opt.icon}</span> ${opt.label}`;
-            item.style.cssText = "padding: 10px; color: #a78bfa; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s;";
-            item.onmouseover = () => { item.style.background = "rgba(124, 58, 237, 0.2)"; item.style.color = "white"; };
-            item.onmouseout = () => { item.style.background = "transparent"; item.style.color = "#a78bfa"; };
-            item.onclick = () => window.handleContextAction(opt.action);
-            menu.appendChild(item);
-        });
-
         document.body.appendChild(menu);
         return menu;
     };
 
-    let selectedPlayerId = null;
+    // Atualiza o conteúdo do menu baseado em quem clicaste
+    const updateContextMenu = (menu, player) => {
+        menu.innerHTML = ''; // Limpa
+        
+        // Cabeçalho com nome do jogador
+        const header = document.createElement('div');
+        header.style.cssText = "padding: 8px 12px; font-size: 11px; color: #8a8a9b; font-weight: 800; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 5px; text-transform:uppercase;";
+        header.innerText = player ? player.name : "GLOBAL OPTIONS";
+        menu.appendChild(header);
 
-    // Lida com a ação escolhida
-    window.handleContextAction = (action) => {
-        const menu = document.getElementById('eclipse-ctx-menu');
-        menu.style.display = 'none';
+        // Opções
+        const options = [];
 
-        if (action === 'spectate') {
-            if (selectedPlayerId) window.startSpectate(selectedPlayerId);
-            else showToast("No player selected", 'error');
+        if (player) {
+            // Se clicou num jogador
+            options.push({ label: 'Spectate Player', icon: '👁️', action: () => window.startSpectate(player.id, player.name) });
+            options.push({ label: 'Copy Nickname', icon: '📝', action: () => { navigator.clipboard.writeText(player.name); showToast("Copied Nick"); } });
+            options.push({ label: 'Copy ID', icon: '🆔', action: () => { navigator.clipboard.writeText(player.id); showToast("Copied ID"); } });
+        } else {
+            // Se clicou no vazio (fundo)
+            options.push({ label: 'Reset Camera', icon: '🔄', action: () => window.stopSpectate() });
+            options.push({ label: 'Open Menu', icon: '⚙️', action: () => window.openEclipseMenu() });
         }
-        else if (action === 'copy') {
-            // Lógica fictícia para copiar nome (depende do jogo ter acesso ao nome pelo ID)
-            showToast("Nickname copied to clipboard");
-        }
-        else if (action === 'copyid') {
-            if(selectedPlayerId) {
-                navigator.clipboard.writeText(selectedPlayerId);
-                showToast("ID Copied: " + selectedPlayerId);
-            }
-        }
+
+        // Renderiza botões
+        options.forEach(opt => {
+            const item = document.createElement('div');
+            item.innerHTML = `<span style="width:20px; text-align:center;">${opt.icon}</span> ${opt.label}`;
+            item.style.cssText = "padding: 10px 12px; color: #e2e8f0; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s;";
+            item.onmouseover = () => { item.style.background = "rgba(124, 58, 237, 0.15)"; item.style.color = "white"; };
+            item.onmouseout = () => { item.style.background = "transparent"; item.style.color = "#e2e8f0"; };
+            item.onclick = () => {
+                opt.action();
+                menu.style.display = 'none';
+            };
+            menu.appendChild(item);
+        });
     };
 
-    // Event Listener para abrir o menu
+    // Event Listener Botão Direito
     window.addEventListener('contextmenu', (e) => {
-        // Tenta detetar se clicou num jogador (Lógica genérica, pode precisar de ajuste dependendo do jogo)
-        // Aqui assumimos que o jogo mete o ID num atributo data-id ou similar, 
-        // ou usamos uma lógica de proximidade.
-        // Para simplificar, abrimos sempre o menu e guardamos a posição.
-        
-        // Se quiseres que só abra em jogadores, terias de ver o 'e.target' ou calcular a posição do rato no mundo do jogo.
-        
         e.preventDefault();
+        
+        // 1. Calcular quem está debaixo do rato
+        const target = getPlayerUnderMouse(e.clientX, e.clientY);
+        selectedPlayerContext = target;
+
+        // 2. Criar/Atualizar Menu
         const menu = document.getElementById('eclipse-ctx-menu') || createContextMenu();
-        
-        // Simulação: Tentar apanhar um ID (ajustar conforme o jogo real)
-        // Exemplo: selectedPlayerId = e.target.getAttribute('data-player-id');
-        // Como fallback para o código funcionar, vamos assumir que o utilizador sabe o ID ou o spectate é geral.
-        selectedPlayerId = prompt("Enter Player ID to interact (Debug Mode):") || null; 
-        // ^ NOTA: Num jogo real, tu calcularias o ID baseado na posição do rato (game.world.getPlayersAt(mousePos))
-        
+        updateContextMenu(menu, target);
+
+        // 3. Posicionar e Mostrar
         menu.style.display = 'block';
         menu.style.left = e.clientX + 'px';
         menu.style.top = e.clientY + 'px';
     });
 
-    // Fechar menu ao clicar fora
-    window.addEventListener('click', () => {
+    // Fechar ao clicar fora
+    window.addEventListener('click', (e) => {
         const menu = document.getElementById('eclipse-ctx-menu');
-        if (menu) menu.style.display = 'none';
+        if (menu && !menu.contains(e.target)) menu.style.display = 'none';
     });
-
-    // =================================================================
-    // 7. INPUTS (TECLAS) E INICIALIZAÇÃO
-    // =================================================================
 
     window.addEventListener('keydown', (e) => {
-        // Tecla R para Gravar
-        if (e.code === 'KeyR' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
-            window.toggleRecording();
-        }
-        // Tecla ESC para sair do Spectate
-        if (e.code === 'Escape') {
-            if (spectateTargetId) window.stopSpectate();
-        }
+        if (e.code === 'KeyR' && !e.repeat && document.activeElement.tagName !== 'INPUT') window.toggleRecording();
+        if (e.code === 'Escape') window.stopSpectate();
     });
 
-    // Inicialização
+    // =================================================================
+    // 8. INICIALIZAÇÃO
+    // =================================================================
+
     const init = () => {
-        // Botão flutuante para abrir o menu
+        // Botão flutuante
         const trig = document.createElement('div');
         trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:linear-gradient(135deg, #7c3aed, #4c1d95); border:1px solid rgba(255,255,255,0.2); border-radius:12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; box-shadow:0 10px 20px rgba(0,0,0,0.5); transition:0.3s;";
         trig.innerHTML = `<div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div><div style="width:20px;height:2px;background:white;"></div>`;
         trig.onclick = window.openEclipseMenu;
-        
         trig.onmouseover = () => trig.style.transform = "scale(1.1)";
         trig.onmouseout = () => trig.style.transform = "scale(1)";
-
         document.body.appendChild(trig);
-        
-        // Abre o menu na primeira vez para testar
-        setTimeout(window.openEclipseMenu, 1000);
+
+        // Abre o menu uma vez para confirmar carregamento
+        setTimeout(window.openEclipseMenu, 800);
     };
 
-    // Inicia tudo
-    init();
+    // Verificar se o jogo já carregou ou esperar
+    if (document.readyState === 'complete') init();
+    else window.addEventListener('load', init);
 
 })();
