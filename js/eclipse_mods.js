@@ -516,12 +516,18 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
         });
     };
 
-    window.openEclipseMenu = function() {
+window.openEclipseMenu = async function() { // 1. Adicionado 'async' aqui
         if(document.getElementById('eclipse-main-wrap')) return;
         showToast("Loading Eclipse Menu...");
         try {
-            const res = fetch(`${GITHUB_URL}?t=${Date.now()}`);
-            const html = res.text();
+            // 2. Adicionado 'await' aqui
+            const res = await fetch(`${GITHUB_URL}?t=${Date.now()}`);
+            
+            // Verificação de segurança extra (opcional mas recomendada)
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+            // 3. Adicionado 'await' aqui
+            const html = await res.text();
             
             let wrap = document.createElement('div');
             wrap.id = "eclipse-main-wrap";
@@ -530,7 +536,10 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
             wrap.innerHTML = html;
 
             setTimeout(() => {
-                window.eclipseTab('player');
+                // Verifica se a função de tabs existe antes de chamar
+                if (typeof window.eclipseTab === 'function') {
+                    window.eclipseTab('player');
+                }
 
                 // Visuals toggle
                 const visualsTab = wrap.querySelector('#tab-visuals');
@@ -538,7 +547,9 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
                      const div = document.createElement('div');
                      div.innerHTML = `<br><label style="color:white;"><input type="checkbox" id="eclipse-lines-toggle" checked> Show Lines</label>`;
                      visualsTab.appendChild(div);
-                     document.getElementById('eclipse-lines-toggle').onchange = (e) => window.eclipse_showLines = e.target.checked;
+                     // Verifica se o elemento existe antes de adicionar o evento
+                     const toggle = document.getElementById('eclipse-lines-toggle');
+                     if (toggle) toggle.onchange = (e) => window.eclipse_showLines = e.target.checked;
                 }
 
                 // Bind Buttons com a nova função segura
@@ -554,6 +565,7 @@ userscript.html?name=Eclipse-Beta-Official-Loader.user.js&id=d7009408-f89d-4f21-
             const closeBtn = wrap.querySelector('#btn-activate');
             if(closeBtn) closeBtn.onclick = () => { wrap.remove(); };
         } catch(e) {
+            console.error(e); // Ajuda a ver o erro real na consola (F12)
             showToast("Failed to load menu", true);
         }
     };
