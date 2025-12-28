@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v13.3 Loaded - Dynamic Scaling & Optimized Recorder");
+    console.log("[ECLIPSE] v13.4 Loaded - Standalone & Low CPU Mode");
 
     // =================================================================
     // 1. ASSETS & CONFIG
@@ -297,12 +297,15 @@
     };
 
     // =================================================================
-    // OPTIMIZED RECORDER ENGINE (SINGLE THREAD - ROLLING BUFFER)
+    // 4. OPTIMIZED RECORDER ENGINE V2 (LOW CPU / NO LAG)
     // =================================================================
     
     let mediaRecorder = null;
     let recordedChunks = []; 
-    const CLIP_DURATION_SECONDS = 30; // Guarda os últimos 30 segundos
+    // Intervalo de 4 segundos para não sobrecarregar o CPU (Standard Buffer)
+    const CHUNK_INTERVAL = 4000; 
+    // Mantém aprox. 32 segundos (8 chunks de 4s)
+    const MAX_CHUNKS = 8; 
     let isSaving = false;
 
     const findGameCanvas = () => {
@@ -315,30 +318,34 @@
     const initRecorder = () => {
         const canvas = findGameCanvas();
         if (!canvas) { setTimeout(initRecorder, 1000); return; }
+        
         try {
-            const stream = canvas.captureStream(30); // 30 FPS
+            // Captura a 30 FPS fixos
+            const stream = canvas.captureStream(30);
             
-            let mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+            // Usamos formato WebM padrão (mais leve para o CPU que VP9)
+            const mime = "video/webm";
 
-            mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 3500000 }); // 3.5 Mbps
+            // Bitrate de 2.5 Mbps (Equilíbrio perfeito entre qualidade e performance)
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
 
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     recordedChunks.push(e.data);
-                    // Remove chunks antigos para manter apenas os últimos X segundos
-                    while (recordedChunks.length > CLIP_DURATION_SECONDS) {
+                    // Remove chunks antigos apenas quando exceder o limite de 32s
+                    if (recordedChunks.length > MAX_CHUNKS) {
                         recordedChunks.shift();
                     }
                 }
             };
 
-            // Gera chunks a cada 1 segundo (1000ms)
-            mediaRecorder.start(1000);
-            console.log("[ECLIPSE] Recorder Engine Started (Optimized)");
+            // Corta o vídeo em pedaços maiores (4s) para o navegador "respirar"
+            mediaRecorder.start(CHUNK_INTERVAL);
+            console.log("[ECLIPSE] Recorder V2 Started (Low CPU Mode)");
 
         } catch (e) {
             console.error("[ECLIPSE] Recorder Error:", e);
-            setTimeout(initRecorder, 2000);
+            setTimeout(initRecorder, 5000);
         }
     };
 
@@ -349,9 +356,10 @@
         isSaving = true;
         showToast("Saving Clip... 🎬");
 
-        // Pequeno delay para capturar o frame atual
+        // Pequeno delay para garantir o último frame
         setTimeout(() => {
             try {
+                // Compila o vídeo
                 const blob = new Blob(recordedChunks, { type: "video/webm" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -360,6 +368,7 @@
                 a.click();
                 setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); isSaving = false; }, 1000);
             } catch (err) {
+                console.error(err);
                 showToast("Save Failed ❌", true);
                 isSaving = false;
             }
@@ -367,7 +376,7 @@
     };
 
     // =================================================================
-    // MISC LOGIC (REBIND, SPECTATE, ETC)
+    // 5. MISC LOGIC (REBIND, SPECTATE, ETC)
     // =================================================================
 
     let isRebinding = false;
@@ -530,12 +539,8 @@
                             ctx.save();
                             ctx.beginPath();
                             ctx.strokeStyle = window.eclipse_ringColor || '#7c3aed';
-
-                            // Espessura baseada no zoom para manter consistência
                             const thickness = Math.max(0.5, 4.5 * s);
                             ctx.lineWidth = thickness;
-
-                            // Desenha ligeiramente "dentro" para evitar serrilhado externo
                             ctx.arc(sx, sy, sr - (thickness * 0.5), 0, Math.PI * 2);
                             ctx.stroke();
 
@@ -556,7 +561,6 @@
 
                         } else if (window.eclipse_outlineType === 'arrow') {
                              if(ARROW_ASSET.complete) {
-                                // LÓGICA DE ESCALA DINÂMICA
                                 let arrowW = Math.max(5, Math.min(50, sr * 0.6));
                                 const offset = sr + (arrowW * 0.4);
 
@@ -573,7 +577,7 @@
         };
         draw();
 
-        // Inicia o novo sistema de gravação
+        // Inicia o sistema V2
         initRecorder();
 
         const trig = document.createElement('div');
