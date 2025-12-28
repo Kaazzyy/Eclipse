@@ -420,33 +420,47 @@
         if (g && realCameraRefs) { g.camera.position = realCameraRefs.position; g.camera.scale = realCameraRefs.scale; realCameraRefs = null; }
         const btn = document.getElementById('eclipse-stop-spectate'); if (btn) btn.remove(); showToast("Camera Reset");
     };
-    window.eclipseAction = (type) => {
-        if (!targetPid) return;
-        const g = window.game; const skinUrl = getRealSkinUrl(targetPid);
-        const pName = g.playerManager?.players?.[targetPid]?.name || "Player";
-        if(contextMenu) contextMenu.style.display = 'none';
-
-        switch (type) {
-            case 'spectate':
+    window.eclipseAction = async (type) => {
+        if (targetPid === null) return;
+        const g = window.game;
+        const pManager = g?.playerManager?.players?.[targetPid];
+        const pName = pManager?.name || "Player";
+        const skinUrl = getRealSkinUrl(targetPid);
+        switch(type) {
+            case 'spectate': {
                 if (window.eclipseModeActive) window.stopSpectate();
-                window.eclipseModeActive = true; spectateTargetId = targetPid;
+                window.eclipseModeActive = true;
+                spectateTargetId = targetPid;
                 realCameraRefs = { position: g.camera.position, scale: g.camera.scale };
-                g.camera.position = decoyCamera.position; g.camera.scale = decoyCamera.scale;
+                g.camera.position = decoyCamera.position;
+                g.camera.scale = decoyCamera.scale;
                 const btn = document.createElement('button');
-                btn.id = 'eclipse-stop-spectate'; btn.innerHTML = `❌ STOP VIEW (${pName})`;
-                btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit'; font-weight:bold;";
-                btn.onclick = window.stopSpectate; document.body.appendChild(btn);
+                btn.id = 'eclipse-stop-spectate';
+                btn.innerHTML = `❌ STOP VIEW (${pName})`;
+                btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit';";
+                btn.onclick = window.stopSpectate;
+                document.body.appendChild(btn);
                 eclipseSpectateTicker = () => {
-                    if (!spectateTargetId || !window.eclipseModeActive) return;
+                    if (!spectateTargetId || !window.eclipseModeActive || !realCameraRefs) return;
                     const nodes = g.nodelist.filter(n => n.pid === spectateTargetId);
                     if (nodes.length > 0) {
-                        let tx = 0, ty = 0, tm = 0;
-                        for(const n of nodes) { const m = n.size*n.size; tx += n.x*m; ty += n.y*m; tm += m; }
-                        if(tm > 0) { realCameraRefs.position.x += ((tx/tm) - realCameraRefs.position.x)*0.1; realCameraRefs.position.y += ((ty/tm) - realCameraRefs.position.y)*0.1; g.center.x = tx/tm; g.center.y = ty/tm; }
+                        let tx = 0, ty = 0, tMass = 0;
+                        for (const n of nodes) { const m = n.size * n.size; tx += n.x * m; ty += n.y * m; tMass += m; }
+                        if (tMass > 0) {
+                            const finalX = tx / tMass;
+                            const finalY = ty / tMass;
+                            realCameraRefs.position.x += (finalX - realCameraRefs.position.x) * 0.15;
+                            realCameraRefs.position.y += (finalY - realCameraRefs.position.y) * 0.15;
+                            const targetZoom = g.zoom || 0.1;
+                            const zoomSmooth = (g.settings && g.settings.cameraZoomSmoothing) ? g.settings.cameraZoomSmoothing : 0.14;
+                            realCameraRefs.scale.set(realCameraRefs.scale.x + (targetZoom - realCameraRefs.scale.x) * zoomSmooth);
+                            g.center.x = finalX; g.center.y = finalY;
+                        }
                     }
                 };
-                if(g.ticker) g.ticker.add(eclipseSpectateTicker);
+                if (g.ticker) g.ticker.add(eclipseSpectateTicker);
                 break;
+            }
             case 'block': showToast("Profile/Block Triggered ⚙️"); break;
             case 'hide': window.hiddenSkinPids.add(targetPid); if(skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Hidden"); break;
             case 'show': window.hiddenSkinPids.delete(targetPid); showToast("Skin Revealed"); break;
