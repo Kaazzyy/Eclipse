@@ -1,21 +1,29 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v8.0 - Maximum Performance & Clip Fix");
+    console.log("[ECLIPSE] v8.1 - Instant Lines & Visuals Fix");
 
     // =================================================================
-    // 1. CONFIGURAÇÕES
+    // 1. CONFIGURAÇÕES GLOBAIS
     // =================================================================
     
+    // Rastreio de Rato Nativo (Zero Delay)
+    window.eclipse_nativeMouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    window.addEventListener('mousemove', (e) => {
+        window.eclipse_nativeMouse.x = e.clientX;
+        window.eclipse_nativeMouse.y = e.clientY;
+    });
+
+    // Variáveis de Teclas
     let KEY_CLIP = 'KeyR'; 
     let KEY_CLIP_ALT = false; 
     let KEY_CLIP_CTRL = false;
     let KEY_CLIP_SHIFT = false;
 
-    // Configurações Visuais e de Performance
+    // Configurações Visuais
     window.eclipse_showLines = true;
-    window.eclipse_showOutlines = false; 
-    window.eclipse_drawDelay = 0; // 0 = Fluido
+    window.eclipse_showOutlines = false; // Começa desligado, ativa no menu
+    window.eclipse_drawDelay = 0; 
     
     // Variáveis de Estado
     window.eclipseSkinBackups = new Map();
@@ -28,17 +36,15 @@
     let realCameraRefs = null;
     let decoyCamera = { position: { x: 0, y: 0 }, scale: { x: 1, y: 1 } };
 
-    // Cache de Elementos DOM (Para evitar lag no loop de desenho)
+    // Cache de UI para Performance
     const UI_CACHE = {
         overlays: null,
         hello: null,
-        settings: null,
-        hudSettings: null,
         lastCheck: 0
     };
 
     // =================================================================
-    // 2. CSS (Visual)
+    // 2. CSS (ESTILO)
     // =================================================================
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
@@ -94,7 +100,7 @@
     `;
 
     // =================================================================
-    // 3. HTML & UI
+    // 3. HTML & MENUS
     // =================================================================
     const ECLIPSE_HTML = `
         <div id="eclipse-dashboard-container">
@@ -128,8 +134,8 @@
 
                     <div id="tab-visuals" class="e-tab-page">
                         <h2>Visuals & Performance</h2>
-                        <label class="e-label">Draw Delay Optimization (0 = Best)</label>
-                        <input type="number" id="e-draw-delay-input" class="e-input" placeholder="0" oninput="window.updateDrawDelay(this.value)">
+                        <label class="e-label">Custom Draw Delay (ms)</label>
+                        <input type="number" id="e-draw-delay-input" class="e-input" placeholder="0 = Smoothest" oninput="window.updateDrawDelay(this.value)">
 
                         <div class="e-setting-group">
                             <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none;">
@@ -145,7 +151,7 @@
                         <div class="e-setting-group">
                             <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
                             <div class="e-keybind-row">
-                                <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder (30s)</span>
+                                <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
                             </div>
                         </div>
@@ -166,7 +172,7 @@
     `;
 
     // =================================================================
-    // 4. LÓGICA DE INJEÇÃO
+    // 4. LÓGICA DE SISTEMA
     // =================================================================
 
     window.eclipseInjectSystem = () => {
@@ -275,6 +281,7 @@
             document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
             if(document.getElementById('eclipse-outlines-toggle')) document.getElementById('eclipse-outlines-toggle').checked = window.eclipse_showOutlines;
             if(document.getElementById('e-draw-delay-input')) document.getElementById('e-draw-delay-input').value = window.eclipse_drawDelay || "";
+            
             if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
             
             const currentSkin = localStorage.getItem('skinUrl') || "";
@@ -315,13 +322,12 @@
     };
 
     // =================================================================
-    // 5. SISTEMA DE CLIP OTIMIZADO (MAX PERFORMANCE)
+    // 5. CLIP SYSTEM (OTIMIZADO)
     // =================================================================
     
-    // Configurações do Gravador
-    const REC_FPS = 30; // Limitado a 30fps para não matar o CPU
-    const REC_BITRATE = 2500000; // 2.5 Mbps (Qualidade Decente, Leve)
-    const BUFFER_DURATION = 15000; // Tempo de cada segmento (ms)
+    const REC_FPS = 30; 
+    const REC_BITRATE = 2500000; // 2.5 Mbps
+    const BUFFER_DURATION = 15000;
 
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -329,7 +335,6 @@
     let recStream = null;
 
     const findCanvas = () => {
-        // Encontra o maior canvas (o do jogo)
         const canvases = document.querySelectorAll('canvas');
         let maxA = 0, best = null;
         canvases.forEach(cvs => { if(cvs.width*cvs.height > maxA && cvs.width > 100) { maxA = cvs.width*cvs.height; best = cvs; }});
@@ -341,7 +346,6 @@
         if(!canvas) { setTimeout(initOptimizedRecorder, 1000); return; }
 
         try {
-            // Captura o stream apenas UMA vez a 30fps
             recStream = canvas.captureStream(REC_FPS);
             startContinuousRecord();
         } catch(e) { console.error("Rec Error:", e); setTimeout(initOptimizedRecorder, 2000); }
@@ -349,40 +353,25 @@
 
     const startContinuousRecord = () => {
         if(!recStream) return;
-        
-        // Limpa memória antiga explicitamente
         recordedChunks = []; 
 
         try {
-            // Verifica codecs suportados (VP9 é melhor, VP8 é backup)
             let mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-            
             mediaRecorder = new MediaRecorder(recStream, {
                 mimeType: mime,
                 videoBitsPerSecond: REC_BITRATE
             });
 
             mediaRecorder.ondataavailable = (e) => {
-                if(e.data && e.data.size > 0) {
-                    recordedChunks.push(e.data);
-                }
+                if(e.data && e.data.size > 0) recordedChunks.push(e.data);
             };
 
-            // Loop de reinício: Grava X segundos, para, e recomeça.
-            // Isso cria um efeito de "Replay Buffer" sem estourar a RAM/CPU.
             mediaRecorder.onstop = () => {
-                if(isSaving) {
-                    // Se o user pediu para salvar, processa agora
-                    saveToFile();
-                    isSaving = false;
-                }
-                // Reinicia imediatamente
+                if(isSaving) { saveToFile(); isSaving = false; }
                 startContinuousRecord();
             };
 
             mediaRecorder.start();
-            
-            // Define o tempo do buffer. Quando expira, o onstop é chamado e limpa os chunks antigos.
             setTimeout(() => {
                 if(mediaRecorder.state === 'recording') mediaRecorder.stop();
             }, BUFFER_DURATION);
@@ -401,26 +390,19 @@
         document.body.appendChild(a);
         a.click();
         
-        // Limpeza de memória
-        setTimeout(() => { 
-            window.URL.revokeObjectURL(url); 
-            a.remove(); 
-        }, 1000);
+        setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
         showToast("Clip Downloaded! 🎬");
     };
 
     window.triggerSave = () => {
         if(isSaving) return showToast("Already Saving...", true);
         if(!mediaRecorder) return showToast("Recorder Starting...", true);
-        
-        // Marca flag para salvar no próximo stop (que acontece em ms)
-        // Ou força o stop agora para salvar o que tem
         isSaving = true;
         if(mediaRecorder.state === 'recording') mediaRecorder.stop();
     };
 
     // =================================================================
-    // 6. FUNÇÕES DE AÇÃO (SPECTATE, ETC)
+    // 6. FUNÇÕES DE JOGO (SPECTATE, BLOCK, ETC)
     // =================================================================
 
     const getRealSkinUrl = (pid) => {
@@ -455,7 +437,6 @@
                 btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit'; font-weight:bold;";
                 btn.onclick = window.stopSpectate; document.body.appendChild(btn);
                 
-                // Spectate Suave (Lerp)
                 eclipseSpectateTicker = () => {
                     if (!spectateTargetId || !window.eclipseModeActive) return;
                     const nodes = g.nodelist.filter(n => n.pid === spectateTargetId);
@@ -533,8 +514,6 @@
         
         let lastDrawTime = 0;
 
-        // [OTIMIZADO] Menu Check com Cache
-        // Só busca os elementos no DOM a cada 1 segundo, e não a cada frame (60x/seg)
         const updateMenuCache = () => {
             const now = Date.now();
             if (now - UI_CACHE.lastCheck > 1000) {
@@ -547,16 +526,18 @@
         const draw = (timestamp) => {
             requestAnimationFrame(draw);
 
-            // 1. Draw Delay Check
-            if (window.eclipse_drawDelay > 0 && timestamp - lastDrawTime < window.eclipse_drawDelay) return;
+            // [FIX] Draw Delay - Check Robusto
+            if (window.eclipse_drawDelay > 0) {
+                if (timestamp - lastDrawTime < window.eclipse_drawDelay) return;
+            }
             lastDrawTime = timestamp;
 
-            // 2. Clear
+            // Clear
             canvas.width = window.innerWidth; 
             canvas.height = window.innerHeight; 
             ctx.clearRect(0,0,canvas.width,canvas.height);
 
-            // 3. Smart Menu Check (Evita Reflow)
+            // Menu Check
             updateMenuCache();
             if (UI_CACHE.overlays && UI_CACHE.overlays.style.display !== 'none') return;
             if (UI_CACHE.hello && UI_CACHE.hello.style.display !== 'none') return;
@@ -564,8 +545,6 @@
             const g = window.game;
             if (g?.nodelist) {
                 const activeId = g.activePid || g.playerId; 
-                // rawMouse é essencial para não ter delay visual
-                const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
                 const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
                 const s = cam.scale.x; 
 
@@ -575,21 +554,24 @@
                     const sx = (n.x - cam.position.x) * s + (innerWidth/2); 
                     const sy = (n.y - cam.position.y) * s + (innerHeight/2);
 
+                    // [FIX] OUTLINES RESTAURADOS
                     if (window.eclipse_showOutlines) {
                         ctx.beginPath();
                         ctx.arc(sx, sy, n.size * s, 0, Math.PI * 2);
-                        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.45)"; // Branco um pouco mais visível
+                        ctx.lineWidth = 3;
                         ctx.stroke();
                         ctx.closePath();
                     }
 
+                    // [FIX] LINHAS USAM MOUSE DO WINDOWS (NATIVE)
                     if(window.eclipse_showLines && n.pid === activeId) {
                         ctx.beginPath(); 
                         ctx.strokeStyle = "rgba(255,255,255,0.3)"; 
                         ctx.lineWidth = 1.5;
                         ctx.moveTo(sx, sy); 
-                        ctx.lineTo(mouse.x, mouse.y);
+                        // Liga à posição do rato do Windows, não à do jogo
+                        ctx.lineTo(window.eclipse_nativeMouse.x, window.eclipse_nativeMouse.y);
                         ctx.stroke();
                         ctx.closePath();
                     }
