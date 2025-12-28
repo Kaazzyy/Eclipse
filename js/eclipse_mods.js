@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] vFinal 7.1 - Spectate Opt & Visuals");
+    console.log("[ECLIPSE] vFinal 7.2 - CPU Saver & Menu Fixes");
 
     // =================================================================
     // 1. CONFIGURAÇÕES & VARIÁVEIS
@@ -15,8 +15,8 @@
 
     // Variáveis de Sistema
     window.eclipse_showLines = true;
-    window.eclipse_showOutlines = false; // [NOVO] Contornos
-    window.eclipse_drawDelay = 0;        // [NOVO] Delay em ms (0 = sem limite, 16 = ~60fps)
+    window.eclipse_showOutlines = false; 
+    window.eclipse_drawDelay = 0; // 0 = Ilimitado
     
     window.eclipseSkinBackups = new Map();
     window.hiddenSkinPids = new Set();
@@ -41,7 +41,7 @@
         #eclipse-dashboard-container * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
         #eclipse-main-wrap { position: fixed; inset: 0; z-index: 9999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
-        #eclipse-dashboard { display: flex; width: 750px; height: 520px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
+        #eclipse-dashboard { display: flex; width: 750px; height: 540px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
 
         .e-sidebar { width: 220px; background: rgba(255, 255, 255, 0.02); border-right: 1px solid rgba(255,255,255,0.05); padding: 40px 25px; display: flex; flex-direction: column; }
         .e-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 45px; }
@@ -72,7 +72,6 @@
             transition: 0.2s;
         }
         .e-keybind-input:focus { border-color: #7c3aed; color: #7c3aed; }
-        .e-keybind-input:hover { border-color: #555; }
         .e-keybind-input.recording { border-color: #ef4444; color: #ef4444; animation: pulse 1s infinite; }
 
         #e-btn-activate { margin-top: auto; padding: 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; transition: 0.2s; font-size: 13px; letter-spacing: 1.5px; width: 100%; }
@@ -91,7 +90,7 @@
     `;
 
     // =================================================================
-    // 3. ESTRUTURA HTML
+    // 3. ESTRUTURA HTML (Atualizada com Draw Delay e Outlines)
     // =================================================================
     const ECLIPSE_HTML = `
         <div id="eclipse-dashboard-container">
@@ -124,7 +123,11 @@
                     </div>
 
                     <div id="tab-visuals" class="e-tab-page">
-                        <h2>Visuals & Keybinds</h2>
+                        <h2>Visuals & Performance</h2>
+                        
+                        <label class="e-label">Custom Draw Delay (ms)</label>
+                        <input type="number" id="e-draw-delay-input" class="e-input" placeholder="0 = No limit" onchange="window.updateDrawDelay(this.value)">
+
                         <div class="e-setting-group">
                             <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none;">
                                 <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)"> 
@@ -135,8 +138,9 @@
                                 Show Cell Outlines
                             </label>
                         </div>
+                        
                         <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS (CLICK TO CHANGE)</label>
+                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
                             <div class="e-keybind-row">
                                 <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
@@ -167,6 +171,10 @@
         const mainSkin = document.getElementById('main-skin').value;
         const dualNick = document.getElementById('dual-nick').value;
         const dualSkin = document.getElementById('dual-skin').value;
+        
+        // Salvar delay
+        const delayVal = document.getElementById('e-draw-delay-input').value;
+        window.eclipse_drawDelay = parseInt(delayVal) || 0;
 
         // Apply Main
         if (mainNick) {
@@ -250,6 +258,7 @@
     // --- UI UTILS ---
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
     window.toggleOutlines = (checked) => { window.eclipse_showOutlines = checked; };
+    window.updateDrawDelay = (val) => { window.eclipse_drawDelay = parseInt(val) || 0; };
     
     window.eclipseTab = function(tabName, element) {
         document.querySelectorAll('.e-nav-item').forEach(item => item.classList.remove('active'));
@@ -283,6 +292,7 @@
             // Restore States
             document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
             if(document.getElementById('eclipse-outlines-toggle')) document.getElementById('eclipse-outlines-toggle').checked = window.eclipse_showOutlines;
+            if(document.getElementById('e-draw-delay-input')) document.getElementById('e-draw-delay-input').value = window.eclipse_drawDelay;
 
             if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
             
@@ -373,7 +383,7 @@
         target.rec.stop(); if(target.timer) clearTimeout(target.timer);
     };
 
-    // [MODIFICADO] SPECTATE OPTIMIZED & CONTEXT
+    // SPECTATE OTIMIZADO PARA CPU (FPS LIMITADO)
     const getRealSkinUrl = (pid) => {
         if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
         const g = window.game; if (!g) return null;
@@ -404,22 +414,24 @@
                 btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit'; font-weight:bold;";
                 btn.onclick = window.stopSpectate; document.body.appendChild(btn);
                 
-                // [OTIMIZADO] Ticker com Lerp melhor e verificação de nós vazios
+                // [FIX CPU] Limitando a ~30FPS (33ms) sem Lerp pesado
+                let lastSpecTick = 0;
                 eclipseSpectateTicker = () => {
+                    const now = Date.now();
+                    if (now - lastSpecTick < 33) return; // Limite de FPS para poupar CPU
+                    lastSpecTick = now;
+
                     if (!spectateTargetId || !window.eclipseModeActive) return;
                     const nodes = g.nodelist.filter(n => n.pid === spectateTargetId);
                     if (nodes.length > 0) {
                         let tx = 0, ty = 0, tm = 0;
                         for(const n of nodes) { const m = n.size*n.size; tx += n.x*m; ty += n.y*m; tm += m; }
                         if(tm > 0) { 
-                            // Otimização: Lerp mais suave e atualiza o centro do jogo para carregar chunks
-                            const lerp = 0.08; // Valor menor para ficar mais "cinemático"
+                            // Direct Set (Mais leve que Lerp)
                             const destX = tx/tm;
                             const destY = ty/tm;
-                            realCameraRefs.position.x += (destX - realCameraRefs.position.x) * lerp; 
-                            realCameraRefs.position.y += (destY - realCameraRefs.position.y) * lerp; 
-                            
-                            // Força o centro do jogo a atualizar para o servidor mandar as células da área
+                            realCameraRefs.position.x = destX; 
+                            realCameraRefs.position.y = destY; 
                             g.center.x = destX; 
                             g.center.y = destY; 
                         }
@@ -435,7 +447,7 @@
         }
     };
 
-    // INIT & DRAWING LOOP OTIMIZADO
+    // INIT & DRAWING LOOP
     const init = () => {
         contextMenu = document.createElement('div');
         contextMenu.id = 'eclipse-ctx-menu';
@@ -492,17 +504,22 @@
         const draw = (timestamp) => {
             requestAnimationFrame(draw);
 
-            // [NOVO] Custom Draw Delay
+            // [CONFIG] Custom Draw Delay
             if (window.eclipse_drawDelay > 0 && timestamp - lastDrawTime < window.eclipse_drawDelay) return;
             lastDrawTime = timestamp;
 
             canvas.width = window.innerWidth; 
             canvas.height = window.innerHeight; 
             
-            // [NOVO] Check para Menu ESC ou Launcher (comuns ids: overlays, helloContainer)
-            const overlays = document.getElementById('overlays');
-            const hello = document.getElementById('helloContainer');
-            if ((overlays && overlays.style.display !== 'none') || (hello && hello.style.display !== 'none')) {
+            // [FIX] Verificação de Menus Robusta
+            // Verifica múltiplos IDs comuns para garantir que não desenha por cima
+            const menuIDs = ['overlays', 'helloContainer', 'settings', 'instructions', 'hud-menu-settings', 'hotkeys'];
+            const isMenuOpen = menuIDs.some(id => {
+                const el = document.getElementById(id);
+                return el && (el.style.display !== 'none' && el.style.visibility !== 'hidden' && el.offsetParent !== null);
+            });
+
+            if (isMenuOpen) {
                 ctx.clearRect(0,0,canvas.width,canvas.height);
                 return;
             }
@@ -516,24 +533,25 @@
 
                 ctx.clearRect(0,0,canvas.width,canvas.height);
                 
-                // Desenhar
                 for(let n of g.nodelist) {
+                    if (n.isDead) continue;
+
                     // Calcula Posição
                     const sx = (n.x - cam.position.x) * s + (innerWidth/2); 
                     const sy = (n.y - cam.position.y) * s + (innerHeight/2);
 
-                    // [NOVO] Outlines
-                    if (window.eclipse_showOutlines && !n.isDead) {
+                    // [OTIMIZADO] Outlines - Só executa se ativado
+                    if (window.eclipse_showOutlines) {
                         ctx.beginPath();
                         ctx.arc(sx, sy, n.size * s, 0, Math.PI * 2);
-                        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.35)"; // Mais fino e transparente
                         ctx.lineWidth = 2;
                         ctx.stroke();
                         ctx.closePath();
                     }
 
                     // Linhas de Conexão
-                    if(window.eclipse_showLines && n.pid === activeId && !n.isDead) {
+                    if(window.eclipse_showLines && n.pid === activeId) {
                         ctx.beginPath(); 
                         ctx.strokeStyle = "rgba(255,255,255,0.3)"; 
                         ctx.lineWidth = 1.5;
@@ -545,7 +563,7 @@
                 } 
             }
         }; 
-        requestAnimationFrame(draw); // Inicia o loop
+        requestAnimationFrame(draw);
 
         initRecorder();
         
