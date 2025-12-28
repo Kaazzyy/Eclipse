@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v13.3 Loaded - Dynamic Scaling");
+    console.log("[ECLIPSE] v13.3 Loaded - Dynamic Scaling & Optimized Recorder");
 
     // =================================================================
     // 1. ASSETS & CONFIG
@@ -296,9 +296,14 @@
         }, 50);
     };
 
-    let recorders = [{ id: 0, rec: null, chunks: [], startTime: 0, timer: null }, { id: 1, rec: null, chunks: [], startTime: 0, timer: null }];
-    let activeStream = null;
-    let isProcessing = false;
+    // =================================================================
+    // OPTIMIZED RECORDER ENGINE (SINGLE THREAD - ROLLING BUFFER)
+    // =================================================================
+    
+    let mediaRecorder = null;
+    let recordedChunks = []; 
+    const CLIP_DURATION_SECONDS = 30; // Guarda os últimos 30 segundos
+    let isSaving = false;
 
     const findGameCanvas = () => {
         const canvases = document.querySelectorAll('canvas'); if (canvases.length === 0) return null;
@@ -311,52 +316,59 @@
         const canvas = findGameCanvas();
         if (!canvas) { setTimeout(initRecorder, 1000); return; }
         try {
-            activeStream = canvas.captureStream(30);
-            startRec(0);
-            setTimeout(() => startRec(1), 10000);
+            const stream = canvas.captureStream(30); // 30 FPS
+            
+            let mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 3500000 }); // 3.5 Mbps
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                    // Remove chunks antigos para manter apenas os últimos X segundos
+                    while (recordedChunks.length > CLIP_DURATION_SECONDS) {
+                        recordedChunks.shift();
+                    }
+                }
+            };
+
+            // Gera chunks a cada 1 segundo (1000ms)
+            mediaRecorder.start(1000);
+            console.log("[ECLIPSE] Recorder Engine Started (Optimized)");
+
         } catch (e) {
+            console.error("[ECLIPSE] Recorder Error:", e);
             setTimeout(initRecorder, 2000);
         }
     };
 
-    const startRec = (idx) => {
-        if (!activeStream) return;
-        const r = recorders[idx];
-        r.chunks = [];
-        r.startTime = Date.now();
-        let mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-        try {
-            r.rec = new MediaRecorder(activeStream, { mimeType: mime, videoBitsPerSecond: 4500000 });
-            r.rec.ondataavailable = e => { if (e.data.size > 0) r.chunks.push(e.data); };
-            r.rec.onstop = () => { if (!isProcessing) startRec(idx); };
-            r.rec.start(1000);
-            r.timer = setTimeout(() => { if (r.rec.state !== 'inactive' && !isProcessing) r.rec.stop(); }, 20000);
-        } catch (e) {}
+    window.triggerSave = () => {
+        if (isSaving) return showToast("Already Saving...", true);
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') { initRecorder(); return showToast("Starting Engine...", true); }
+        
+        isSaving = true;
+        showToast("Saving Clip... 🎬");
+
+        // Pequeno delay para capturar o frame atual
+        setTimeout(() => {
+            try {
+                const blob = new Blob(recordedChunks, { type: "video/webm" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `Eclipse-Clip-${Date.now()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); isSaving = false; }, 1000);
+            } catch (err) {
+                showToast("Save Failed ❌", true);
+                isSaving = false;
+            }
+        }, 200);
     };
 
-    window.triggerSave = () => {
-        if (isProcessing) return showToast("Saving...", true);
-        if (!recorders[0].rec) { initRecorder(); return showToast("Starting Engine...", true); }
-        isProcessing = true;
-        const now = Date.now();
-        let idx = (now - recorders[0].startTime > now - recorders[1].startTime) ? 0 : 1;
-        if (recorders[idx].chunks.length === 0) idx = idx === 0 ? 1 : 0;
-        const target = recorders[idx];
-        showToast("Clip Saved! 🎬");
-        target.rec.onstop = () => {
-            const blob = new Blob(target.chunks, { type: "video/webm" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `Eclipse-Clip-${Date.now()}.webm`;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
-            isProcessing = false;
-            startRec(idx);
-        };
-        target.rec.stop();
-        if(target.timer) clearTimeout(target.timer);
-    };
+    // =================================================================
+    // MISC LOGIC (REBIND, SPECTATE, ETC)
+    // =================================================================
 
     let isRebinding = false;
     window.startRebind = (action, inputEl) => {
@@ -545,13 +557,7 @@
                         } else if (window.eclipse_outlineType === 'arrow') {
                              if(ARROW_ASSET.complete) {
                                 // LÓGICA DE ESCALA DINÂMICA
-                                // arrowW depende do raio da célula (sr).
-                                // Math.max(20, ...) -> Nunca menor que 20px (para não desaparecer em células minusculas)
-                                // Math.min(50, ...) -> Nunca maior que 50px (para não ficar absurdo em células gigantes)
-                                // sr * 0.6 -> Tamanho base é 60% do raio da célula
                                 let arrowW = Math.max(5, Math.min(50, sr * 0.6));
-
-                                // A distância muda levemente com o tamanho da seta
                                 const offset = sr + (arrowW * 0.4);
 
                                 ctx.save();
@@ -567,6 +573,7 @@
         };
         draw();
 
+        // Inicia o novo sistema de gravação
         initRecorder();
 
         const trig = document.createElement('div');
