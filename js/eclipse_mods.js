@@ -1,22 +1,23 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] vFinal 7.0 - Smart Binds & Chat Protection");
+    console.log("[ECLIPSE] vFinal 8.0 - Texture Replacer System");
 
     // =================================================================
     // 1. CONFIGURAÇÕES & VARIÁVEIS
     // =================================================================
     
-    // Variáveis de Teclas (Padrão: R)
+    // Teclas
     let KEY_CLIP = 'KeyR'; 
-    let KEY_CLIP_ALT = false; 
-    let KEY_CLIP_CTRL = false;
-    let KEY_CLIP_SHIFT = false;
+    let KEY_CLIP_ALT = false; let KEY_CLIP_CTRL = false; let KEY_CLIP_SHIFT = false;
 
-    // Variáveis de Sistema
+    // Sistema
     window.eclipse_showLines = true;
     window.eclipseSkinBackups = new Map();
     window.hiddenSkinPids = new Set();
+    window.eclipseAssetReplacements = new Map(); // Mapa de texturas
+    window.eclipseLogAssets = false; // Logger de imagens
+
     let targetPid = null;
     let contextMenu = null;
     let spectateTargetId = null;
@@ -31,14 +32,41 @@
     let recorders = [{ id: 0, rec: null, chunks: [], startTime: 0, timer: null }, { id: 1, rec: null, chunks: [], startTime: 0, timer: null }];
 
     // =================================================================
-    // 2. ESTILO VISUAL (CSS)
+    // 2. INTERCEPTOR DE IMAGENS (TEXTURE REPLACER)
+    // =================================================================
+    
+    // Hook nativo para substituir imagens em tempo real
+    const nativeImageSrcDesc = Object.getOwnPropertyDescriptor(Image.prototype, 'src');
+    
+    Object.defineProperty(Image.prototype, 'src', {
+        set: function(val) {
+            // Logger para descobrir o link do chapéu
+            if (window.eclipseLogAssets && typeof val === 'string') {
+                console.log("[ECLIPSE ASSET]:", val);
+            }
+
+            // Substituidor
+            if (window.eclipseAssetReplacements.has(val)) {
+                console.log(`[ECLIPSE] Replaced: ${val} -> ${window.eclipseAssetReplacements.get(val)}`);
+                val = window.eclipseAssetReplacements.get(val);
+            }
+
+            nativeImageSrcDesc.set.call(this, val);
+        },
+        get: function() {
+            return nativeImageSrcDesc.get.call(this);
+        }
+    });
+
+    // =================================================================
+    // 3. ESTILO VISUAL (CSS)
     // =================================================================
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
         #eclipse-dashboard-container * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
         #eclipse-main-wrap { position: fixed; inset: 0; z-index: 9999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
-        #eclipse-dashboard { display: flex; width: 750px; height: 520px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
+        #eclipse-dashboard { display: flex; width: 800px; height: 550px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
 
         .e-sidebar { width: 220px; background: rgba(255, 255, 255, 0.02); border-right: 1px solid rgba(255,255,255,0.05); padding: 40px 25px; display: flex; flex-direction: column; }
         .e-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 45px; }
@@ -49,8 +77,8 @@
         .e-nav-item.active { background: rgba(124, 58, 237, 0.1); color: #a78bfa; border-color: rgba(124, 58, 237, 0.2); }
         .e-nav-item.hidden { display: none; }
 
-        .e-content { flex: 1; padding: 45px; position: relative; display: flex; flex-direction: column; }
-        .e-tab-page { display: none; animation: e-fadeIn 0.25s ease; flex-direction: column; height: 100%; }
+        .e-content { flex: 1; padding: 45px; position: relative; display: flex; flex-direction: column; overflow-y: auto; }
+        .e-tab-page { display: none; animation: e-fadeIn 0.25s ease; flex-direction: column; min-height: 100%; }
         .e-tab-page.active { display: flex; }
         
         .e-content h2 { margin: 0 0 25px 0; font-weight: 800; font-size: 26px; color: white; }
@@ -65,12 +93,15 @@
         .e-keybind-input { 
             background: #000; border: 1px solid #333; color: #ccc; 
             padding: 5px 10px; border-radius: 6px; font-size: 12px; 
-            font-weight: bold; width: 120px; text-align: center; cursor: pointer;
-            transition: 0.2s;
+            font-weight: bold; width: 120px; text-align: center; cursor: pointer; transition: 0.2s;
         }
         .e-keybind-input:focus { border-color: #7c3aed; color: #7c3aed; }
-        .e-keybind-input:hover { border-color: #555; }
         .e-keybind-input.recording { border-color: #ef4444; color: #ef4444; animation: pulse 1s infinite; }
+
+        .e-helper-text { font-size: 12px; color: #666; margin-bottom: 10px; line-height: 1.4; }
+        .e-small-btn { padding: 8px 12px; background: #222; border: 1px solid #333; color: #ccc; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; margin-bottom: 15px; transition: 0.2s; }
+        .e-small-btn:hover { background: #333; color: white; }
+        .e-small-btn.active { background: #7c3aed; color: white; border-color: #7c3aed; }
 
         #e-btn-activate { margin-top: auto; padding: 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; transition: 0.2s; font-size: 13px; letter-spacing: 1.5px; width: 100%; }
         #e-btn-activate:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3); }
@@ -88,7 +119,7 @@
     `;
 
     // =================================================================
-    // 3. ESTRUTURA HTML
+    // 4. ESTRUTURA HTML
     // =================================================================
     const ECLIPSE_HTML = `
         <div id="eclipse-dashboard-container">
@@ -99,6 +130,7 @@
                         <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">PLAYER</div>
                         <div class="e-nav-item" onclick="window.eclipseTab('dual', this)">DUAL</div>
                         <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUALS</div>
+                        <div class="e-nav-item" onclick="window.eclipseTab('textures', this)">TEXTURES</div>
                         <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVIEW</div>
                     </nav>
                 </div>
@@ -129,11 +161,28 @@
                             </label>
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS (CLICK TO CHANGE)</label>
+                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
                             <div class="e-keybind-row">
                                 <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
                             </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-textures" class="e-tab-page">
+                        <h2>Texture Replacer</h2>
+                        <p class="e-helper-text">Replace any game image (hats, particles, etc) with your own link.</p>
+                        
+                        <div class="e-setting-group">
+                            <button class="e-small-btn" id="btn-log-assets" onclick="window.toggleAssetLogger(this)">
+                                👁️ TOGGLE ASSET LOGGER (Check Console F12)
+                            </button>
+
+                            <label class="e-label">Original Asset URL (From Console)</label>
+                            <input type="text" id="tex-original" class="e-input" placeholder="e.g. assets/hats/santa.png">
+                            
+                            <label class="e-label">New Image URL (Your Link)</label>
+                            <input type="text" id="tex-new" class="e-input" placeholder="https://imgur.com/...">
                         </div>
                     </div>
 
@@ -152,16 +201,16 @@
     `;
 
     // =================================================================
-    // 4. LÓGICA DE INJEÇÃO (Manual & Segura)
+    // 5. LÓGICA DE INJEÇÃO
     // =================================================================
 
     window.eclipseInjectSystem = () => {
+        // Player & Dual Logic
         const mainNick = document.getElementById('main-nick').value;
         const mainSkin = document.getElementById('main-skin').value;
         const dualNick = document.getElementById('dual-nick').value;
         const dualSkin = document.getElementById('dual-skin').value;
 
-        // Apply Main
         if (mainNick) {
             localStorage.setItem('nickname', mainNick);
             let gameNick = document.getElementById('nickname');
@@ -173,9 +222,17 @@
             if(gameSkin) { gameSkin.value = mainSkin; gameSkin.dispatchEvent(new Event('input')); }
         }
 
-        // Apply Dual
         localStorage.setItem('dualNickname', dualNick);
         if (dualSkin && dualSkin.includes('http')) localStorage.setItem('dualSkinUrl', dualSkin);
+
+        // Texture Replacement Logic
+        const texOriginal = document.getElementById('tex-original').value;
+        const texNew = document.getElementById('tex-new').value;
+        
+        if (texOriginal && texNew) {
+            window.eclipseAssetReplacements.set(texOriginal, texNew);
+            showToast("Texture Replacement Queued 🎨");
+        }
 
         if (window.game) {
             if(!window.game.dualIdentity) window.game.dualIdentity = {};
@@ -189,66 +246,53 @@
         if(menu) menu.remove();
     };
 
-    // --- REBIND SYSTEM INTELIGENTE ---
-    let isRebinding = false;
+    // --- TEXTURE REPLACER UTILS ---
+    window.toggleAssetLogger = (btn) => {
+        window.eclipseLogAssets = !window.eclipseLogAssets;
+        if(window.eclipseLogAssets) {
+            btn.classList.add('active');
+            btn.innerText = "👁️ LOGGING ACTIVE (Check F12)";
+            showToast("Open Console (F12) to see image URLs");
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = "👁️ TOGGLE ASSET LOGGER (Check Console F12)";
+        }
+    };
 
+    // --- REBIND SYSTEM ---
+    let isRebinding = false;
     window.startRebind = (action, inputEl) => {
         if(isRebinding) return;
         isRebinding = true;
-        inputEl.value = "PRESS KEY...";
-        inputEl.classList.add('recording');
+        inputEl.value = "PRESS KEY..."; inputEl.classList.add('recording');
         
         const handler = (e) => {
-            e.preventDefault(); 
-            e.stopPropagation();
+            e.preventDefault(); e.stopPropagation();
+            const isAlt = e.altKey; const isCtrl = e.ctrlKey; const isShift = e.shiftKey;
             
-            // Detecta Modificadores
-            const isAlt = e.altKey;
-            const isCtrl = e.ctrlKey;
-            const isShift = e.shiftKey;
-            
-            // Limpa o código da tecla para mostrar bonito
             let code = e.code.replace('Key', '').replace('Digit', '').replace('Left', '').replace('Right', '');
-            if(code === 'Alt' || code === 'Control' || code === 'Shift') code = ""; // Não mostra modificador sozinho como tecla final
+            if(code === 'Alt' || code === 'Control' || code === 'Shift') code = "";
 
-            // Constrói o Display
             let displayParts = [];
-            if(isCtrl) displayParts.push("CTRL");
-            if(isAlt) displayParts.push("ALT");
-            if(isShift) displayParts.push("SHIFT");
+            if(isCtrl) displayParts.push("CTRL"); if(isAlt) displayParts.push("ALT"); if(isShift) displayParts.push("SHIFT");
             if(code) displayParts.push(code);
 
-            let displayString = displayParts.join("+");
-            if(displayString === "") displayString = "..."; // Ainda a segurar só modificador
+            inputEl.value = displayParts.join("+") || "...";
 
-            inputEl.value = displayString;
-
-            // Lógica de Finalização: 
-            // Só guarda se o utilizador pressionou uma tecla que NÃO é modificador (ex: pressionou 'C' enquanto segura Alt)
             const isModifierKey = ['Alt', 'Control', 'Shift', 'Meta'].some(m => e.key === m);
-            
             if (!isModifierKey) {
-                // SALVAR
                 if(action === 'clip') {
-                    KEY_CLIP = e.code;
-                    KEY_CLIP_ALT = isAlt;
-                    KEY_CLIP_CTRL = isCtrl;
-                    KEY_CLIP_SHIFT = isShift;
+                    KEY_CLIP = e.code; KEY_CLIP_ALT = isAlt; KEY_CLIP_CTRL = isCtrl; KEY_CLIP_SHIFT = isShift;
                 }
-                
-                inputEl.classList.remove('recording');
-                inputEl.style.borderColor = "#333";
-                isRebinding = false;
-                window.removeEventListener('keydown', handler, true);
+                inputEl.classList.remove('recording'); inputEl.style.borderColor = "#333";
+                isRebinding = false; window.removeEventListener('keydown', handler, true);
             }
         };
-        
         window.addEventListener('keydown', handler, true);
     };
 
     // --- UI UTILS ---
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
-    
     window.eclipseTab = function(tabName, element) {
         document.querySelectorAll('.e-nav-item').forEach(item => item.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -256,7 +300,6 @@
         const target = document.getElementById('tab-' + tabName);
         if(target) target.classList.add('active');
     };
-
     window.checkSkin = function(url, type) {
         const previewTabNav = document.getElementById('nav-skin-tab');
         const imgElement = document.getElementById('preview-' + type + '-img');
@@ -279,28 +322,17 @@
 
         setTimeout(() => {
             if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
-            
             const currentSkin = localStorage.getItem('skinUrl') || "";
-            if(document.getElementById('main-skin')) {
-                document.getElementById('main-skin').value = currentSkin;
-                if(currentSkin) window.checkSkin(currentSkin, 'main');
-            }
-
+            if(document.getElementById('main-skin')) { document.getElementById('main-skin').value = currentSkin; if(currentSkin) window.checkSkin(currentSkin, 'main'); }
             const dNick = localStorage.getItem('dualNickname') || "";
             const dSkin = localStorage.getItem('dualSkinUrl') || "";
             if(document.getElementById('dual-nick')) document.getElementById('dual-nick').value = dNick;
-            if(document.getElementById('dual-skin')) {
-                document.getElementById('dual-skin').value = dSkin;
-                if(dSkin) window.checkSkin(dSkin, 'dual');
-            }
+            if(document.getElementById('dual-skin')) { document.getElementById('dual-skin').value = dSkin; if(dSkin) window.checkSkin(dSkin, 'dual'); }
             
-            // Atualizar Visual da Bind
             const bindInput = document.getElementById('bind-clip-input');
             if(bindInput) {
                 let parts = [];
-                if(KEY_CLIP_CTRL) parts.push("CTRL");
-                if(KEY_CLIP_ALT) parts.push("ALT");
-                if(KEY_CLIP_SHIFT) parts.push("SHIFT");
+                if(KEY_CLIP_CTRL) parts.push("CTRL"); if(KEY_CLIP_ALT) parts.push("ALT"); if(KEY_CLIP_SHIFT) parts.push("SHIFT");
                 parts.push(KEY_CLIP.replace('Key', '').replace('Digit',''));
                 bindInput.value = parts.join("+");
             }
@@ -308,7 +340,7 @@
     };
 
     // =================================================================
-    // 5. FUNÇÕES CORE (GRAVAÇÃO, UTILS, ETC)
+    // 6. CORE FUNCTIONS
     // =================================================================
     
     const showToast = (msg, isError = false) => {
@@ -322,17 +354,13 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     };
 
-    // GRAVADOR
     const findGameCanvas = () => {
-        const canvases = document.querySelectorAll('canvas');
-        if (canvases.length === 0) return null;
-        let largest = null; let maxA = 0;
-        canvases.forEach(cvs => { if(cvs.width*cvs.height > maxA && cvs.width > 100) { maxA = cvs.width*cvs.height; largest = cvs; }});
+        const canvases = document.querySelectorAll('canvas'); if (canvases.length === 0) return null;
+        let largest = null; let maxA = 0; canvases.forEach(cvs => { if(cvs.width*cvs.height > maxA && cvs.width > 100) { maxA = cvs.width*cvs.height; largest = cvs; }});
         return largest;
     };
     const initRecorder = () => {
-        const canvas = findGameCanvas();
-        if (!canvas) { setTimeout(initRecorder, 1000); return; }
+        const canvas = findGameCanvas(); if (!canvas) { setTimeout(initRecorder, 1000); return; }
         try { activeStream = canvas.captureStream(60); startRec(0); setTimeout(() => startRec(1), 10000); } catch (e) { setTimeout(initRecorder, 2000); }
     };
     const startRec = (idx) => {
@@ -359,16 +387,14 @@
         target.rec.onstop = () => {
             const blob = new Blob(target.chunks, { type: "video/webm" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `Eclipse-Clip-${Date.now()}.webm`;
-            document.body.appendChild(a); a.click();
-            setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
+            const a = document.createElement("a"); a.href = url; a.download = `Eclipse-Clip-${Date.now()}.webm`;
+            document.body.appendChild(a); a.click(); setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
             isProcessing = false; startRec(idx);
         };
         target.rec.stop(); if(target.timer) clearTimeout(target.timer);
     };
 
-    // SPECTATE & CONTEXT
+    // Spectate & Utils
     const getRealSkinUrl = (pid) => {
         if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
         const g = window.game; if (!g) return null;
@@ -418,26 +444,16 @@
 
     // INIT
     const init = () => {
-        contextMenu = document.createElement('div');
-        contextMenu.id = 'eclipse-ctx-menu';
+        contextMenu = document.createElement('div'); contextMenu.id = 'eclipse-ctx-menu';
         contextMenu.style.cssText = "position:fixed; z-index:1000001; background:rgba(5,5,7,0.95); backdrop-filter:blur(10px); border:1px solid rgba(124,58,237,0.3); border-radius:12px; width:220px; display:none; font-family:'Outfit', sans-serif; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.8);";
         document.body.appendChild(contextMenu);
 
         window.addEventListener('keydown', (e) => {
             if (isRebinding) return;
-            
-            // VERIFICA SE ESTÁ A ESCREVER (CHAT, NICK, ETC)
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
-            if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
-
-            // DETEÇÃO DE BIND SEGURA
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
             if (e.code === KEY_CLIP) {
-                if (KEY_CLIP_ALT && !e.altKey) return;
-                if (KEY_CLIP_CTRL && !e.ctrlKey) return;
-                if (KEY_CLIP_SHIFT && !e.shiftKey) return;
-
-                e.preventDefault(); 
-                window.triggerSave();
+                if (KEY_CLIP_ALT && !e.altKey) return; if (KEY_CLIP_CTRL && !e.ctrlKey) return; if (KEY_CLIP_SHIFT && !e.shiftKey) return;
+                e.preventDefault(); window.triggerSave();
             }
         });
 
