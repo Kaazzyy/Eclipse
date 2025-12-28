@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] vFinal 7.0 - Smart Binds & Chat Protection");
+    console.log("[ECLIPSE] vFinal 7.1 - Spectate Opt & Visuals");
 
     // =================================================================
     // 1. CONFIGURAÇÕES & VARIÁVEIS
@@ -15,6 +15,9 @@
 
     // Variáveis de Sistema
     window.eclipse_showLines = true;
+    window.eclipse_showOutlines = false; // [NOVO] Contornos
+    window.eclipse_drawDelay = 0;        // [NOVO] Delay em ms (0 = sem limite, 16 = ~60fps)
+    
     window.eclipseSkinBackups = new Map();
     window.hiddenSkinPids = new Set();
     let targetPid = null;
@@ -37,7 +40,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
         #eclipse-dashboard-container * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
-        #eclipse-main-wrap { position: fixed; inset: 0; z-index: 9999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        #eclipse-main-wrap { position: fixed; inset: 0; z-index: 9999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
         #eclipse-dashboard { display: flex; width: 750px; height: 520px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
 
         .e-sidebar { width: 220px; background: rgba(255, 255, 255, 0.02); border-right: 1px solid rgba(255,255,255,0.05); padding: 40px 25px; display: flex; flex-direction: column; }
@@ -127,6 +130,10 @@
                                 <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)"> 
                                 Show Connection Lines
                             </label>
+                            <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin-top:10px;">
+                                <input type="checkbox" id="eclipse-outlines-toggle" style="width:auto; margin:0;" onchange="window.toggleOutlines(this.checked)"> 
+                                Show Cell Outlines
+                            </label>
                         </div>
                         <div class="e-setting-group">
                             <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS (CLICK TO CHANGE)</label>
@@ -152,7 +159,7 @@
     `;
 
     // =================================================================
-    // 4. LÓGICA DE INJEÇÃO (Manual & Segura)
+    // 4. LÓGICA DE INJEÇÃO
     // =================================================================
 
     window.eclipseInjectSystem = () => {
@@ -189,7 +196,7 @@
         if(menu) menu.remove();
     };
 
-    // --- REBIND SYSTEM INTELIGENTE ---
+    // --- REBIND SYSTEM ---
     let isRebinding = false;
 
     window.startRebind = (action, inputEl) => {
@@ -202,16 +209,13 @@
             e.preventDefault(); 
             e.stopPropagation();
             
-            // Detecta Modificadores
             const isAlt = e.altKey;
             const isCtrl = e.ctrlKey;
             const isShift = e.shiftKey;
             
-            // Limpa o código da tecla para mostrar bonito
             let code = e.code.replace('Key', '').replace('Digit', '').replace('Left', '').replace('Right', '');
-            if(code === 'Alt' || code === 'Control' || code === 'Shift') code = ""; // Não mostra modificador sozinho como tecla final
+            if(code === 'Alt' || code === 'Control' || code === 'Shift') code = "";
 
-            // Constrói o Display
             let displayParts = [];
             if(isCtrl) displayParts.push("CTRL");
             if(isAlt) displayParts.push("ALT");
@@ -219,16 +223,13 @@
             if(code) displayParts.push(code);
 
             let displayString = displayParts.join("+");
-            if(displayString === "") displayString = "..."; // Ainda a segurar só modificador
+            if(displayString === "") displayString = "...";
 
             inputEl.value = displayString;
 
-            // Lógica de Finalização: 
-            // Só guarda se o utilizador pressionou uma tecla que NÃO é modificador (ex: pressionou 'C' enquanto segura Alt)
             const isModifierKey = ['Alt', 'Control', 'Shift', 'Meta'].some(m => e.key === m);
             
             if (!isModifierKey) {
-                // SALVAR
                 if(action === 'clip') {
                     KEY_CLIP = e.code;
                     KEY_CLIP_ALT = isAlt;
@@ -248,6 +249,7 @@
 
     // --- UI UTILS ---
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
+    window.toggleOutlines = (checked) => { window.eclipse_showOutlines = checked; };
     
     window.eclipseTab = function(tabName, element) {
         document.querySelectorAll('.e-nav-item').forEach(item => item.classList.remove('active'));
@@ -278,6 +280,10 @@
         wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); };
 
         setTimeout(() => {
+            // Restore States
+            document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
+            if(document.getElementById('eclipse-outlines-toggle')) document.getElementById('eclipse-outlines-toggle').checked = window.eclipse_showOutlines;
+
             if(document.getElementById('main-nick')) document.getElementById('main-nick').value = ""; 
             
             const currentSkin = localStorage.getItem('skinUrl') || "";
@@ -294,7 +300,6 @@
                 if(dSkin) window.checkSkin(dSkin, 'dual');
             }
             
-            // Atualizar Visual da Bind
             const bindInput = document.getElementById('bind-clip-input');
             if(bindInput) {
                 let parts = [];
@@ -368,7 +373,7 @@
         target.rec.stop(); if(target.timer) clearTimeout(target.timer);
     };
 
-    // SPECTATE & CONTEXT
+    // [MODIFICADO] SPECTATE OPTIMIZED & CONTEXT
     const getRealSkinUrl = (pid) => {
         if (window.eclipseSkinBackups.has(pid)) return window.eclipseSkinBackups.get(pid);
         const g = window.game; if (!g) return null;
@@ -393,17 +398,31 @@
                 window.eclipseModeActive = true; spectateTargetId = targetPid;
                 realCameraRefs = { position: g.camera.position, scale: g.camera.scale };
                 g.camera.position = decoyCamera.position; g.camera.scale = decoyCamera.scale;
+                
                 const btn = document.createElement('button');
                 btn.id = 'eclipse-stop-spectate'; btn.innerHTML = `❌ STOP VIEW (${pName})`;
                 btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit'; font-weight:bold;";
                 btn.onclick = window.stopSpectate; document.body.appendChild(btn);
+                
+                // [OTIMIZADO] Ticker com Lerp melhor e verificação de nós vazios
                 eclipseSpectateTicker = () => {
                     if (!spectateTargetId || !window.eclipseModeActive) return;
                     const nodes = g.nodelist.filter(n => n.pid === spectateTargetId);
                     if (nodes.length > 0) {
                         let tx = 0, ty = 0, tm = 0;
                         for(const n of nodes) { const m = n.size*n.size; tx += n.x*m; ty += n.y*m; tm += m; }
-                        if(tm > 0) { realCameraRefs.position.x += ((tx/tm) - realCameraRefs.position.x)*0.1; realCameraRefs.position.y += ((ty/tm) - realCameraRefs.position.y)*0.1; g.center.x = tx/tm; g.center.y = ty/tm; }
+                        if(tm > 0) { 
+                            // Otimização: Lerp mais suave e atualiza o centro do jogo para carregar chunks
+                            const lerp = 0.08; // Valor menor para ficar mais "cinemático"
+                            const destX = tx/tm;
+                            const destY = ty/tm;
+                            realCameraRefs.position.x += (destX - realCameraRefs.position.x) * lerp; 
+                            realCameraRefs.position.y += (destY - realCameraRefs.position.y) * lerp; 
+                            
+                            // Força o centro do jogo a atualizar para o servidor mandar as células da área
+                            g.center.x = destX; 
+                            g.center.y = destY; 
+                        }
                     }
                 };
                 if(g.ticker) g.ticker.add(eclipseSpectateTicker);
@@ -416,7 +435,7 @@
         }
     };
 
-    // INIT
+    // INIT & DRAWING LOOP OTIMIZADO
     const init = () => {
         contextMenu = document.createElement('div');
         contextMenu.id = 'eclipse-ctx-menu';
@@ -425,17 +444,13 @@
 
         window.addEventListener('keydown', (e) => {
             if (isRebinding) return;
-            
-            // VERIFICA SE ESTÁ A ESCREVER (CHAT, NICK, ETC)
             if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
             if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
 
-            // DETEÇÃO DE BIND SEGURA
             if (e.code === KEY_CLIP) {
                 if (KEY_CLIP_ALT && !e.altKey) return;
                 if (KEY_CLIP_CTRL && !e.ctrlKey) return;
                 if (KEY_CLIP_SHIFT && !e.shiftKey) return;
-
                 e.preventDefault(); 
                 window.triggerSave();
             }
@@ -466,22 +481,72 @@
         });
         window.addEventListener('click', (e) => { if(contextMenu && !contextMenu.contains(e.target)) contextMenu.style.display = 'none'; });
 
-        let canvas = document.createElement('canvas'); canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;"; document.body.appendChild(canvas);
+        // --- VISUAL LAYER (CANVAS) ---
+        let canvas = document.createElement('canvas'); 
+        canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;"; 
+        document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
-        const draw = () => {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight; const g = window.game;
-            if (window.eclipse_showLines && g?.nodelist) {
-                ctx.clearRect(0,0,canvas.width,canvas.height); const activeId = g.activePid || g.playerId; const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
-                ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1.5;
+        
+        let lastDrawTime = 0;
+
+        const draw = (timestamp) => {
+            requestAnimationFrame(draw);
+
+            // [NOVO] Custom Draw Delay
+            if (window.eclipse_drawDelay > 0 && timestamp - lastDrawTime < window.eclipse_drawDelay) return;
+            lastDrawTime = timestamp;
+
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+            
+            // [NOVO] Check para Menu ESC ou Launcher (comuns ids: overlays, helloContainer)
+            const overlays = document.getElementById('overlays');
+            const hello = document.getElementById('helloContainer');
+            if ((overlays && overlays.style.display !== 'none') || (hello && hello.style.display !== 'none')) {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                return;
+            }
+
+            const g = window.game;
+            if (g?.nodelist) {
+                const activeId = g.activePid || g.playerId; 
+                const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
+                const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
+                const s = cam.scale.x; 
+
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                
+                // Desenhar
                 for(let n of g.nodelist) {
-                    if(n.pid === activeId && !n.isDead) {
-                        const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
-                        const s = cam.scale.x; const sx = (n.x - cam.position.x) * s + (innerWidth/2); const sy = (n.y - cam.position.y) * s + (innerHeight/2);
-                        ctx.moveTo(sx, sy); ctx.lineTo(mouse.x, mouse.y);
+                    // Calcula Posição
+                    const sx = (n.x - cam.position.x) * s + (innerWidth/2); 
+                    const sy = (n.y - cam.position.y) * s + (innerHeight/2);
+
+                    // [NOVO] Outlines
+                    if (window.eclipse_showOutlines && !n.isDead) {
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, n.size * s, 0, Math.PI * 2);
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.closePath();
                     }
-                } ctx.stroke();
-            } requestAnimationFrame(draw);
-        }; draw();
+
+                    // Linhas de Conexão
+                    if(window.eclipse_showLines && n.pid === activeId && !n.isDead) {
+                        ctx.beginPath(); 
+                        ctx.strokeStyle = "rgba(255,255,255,0.3)"; 
+                        ctx.lineWidth = 1.5;
+                        ctx.moveTo(sx, sy); 
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                        ctx.closePath();
+                    }
+                } 
+            }
+        }; 
+        requestAnimationFrame(draw); // Inicia o loop
+
         initRecorder();
         
         const trig = document.createElement('div');
