@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v1.02 - Beta Release");
+    console.log("[ECLIPSE] v29.0 - Default Background Fixed (0x0c0c0c)");
 
     const ARROW_ASSET = new Image();
     ARROW_ASSET.src = "https://i.imgur.com/o4pRDVJ.png";
@@ -20,6 +20,9 @@
     window.eclipse_chromaMode = false;
     window.eclipse_darkBorder = true; 
     
+    // Cor padrão solicitada: 0x0c0c0c
+    const DEFAULT_GAME_BG = 0x0c0c0c;
+
     window.eclipse_targetPid = null;
     let cachedMiniCanvas = null; 
 
@@ -42,13 +45,19 @@
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
         
-        html, body, #game-container, #canvas-container { 
+        /* FORCE BLACK ONLY WHEN ACTIVE */
+        body.eclipse-dark, 
+        body.eclipse-dark #game-container, 
+        body.eclipse-dark #canvas-container { 
             background-color: #000000 !important; 
             background: #000000 !important;
             background-image: none !important;
         }
 
-        #background-img, .background-image, .bg-overlay, .grid-layer {
+        body.eclipse-dark #background-img, 
+        body.eclipse-dark .background-image, 
+        body.eclipse-dark .bg-overlay, 
+        body.eclipse-dark .grid-layer {
             display: none !important;
             opacity: 0 !important;
         }
@@ -107,6 +116,16 @@
         .e-skin-circle img.loaded { opacity: 1; }
         .e-ctx-item { padding: 10px 12px; color: #e2e8f0; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s; }
         .e-ctx-item:hover { background: rgba(124, 58, 237, 0.15); color: white; }
+        
+        .e-switch-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .e-switch-label { font-size: 14px; color: #ccc; font-weight: 500; }
+        .e-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .e-switch input { opacity: 0; width: 0; height: 0; }
+        .e-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #222; transition: .4s; border-radius: 34px; border: 1px solid #333; }
+        .e-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .e-slider { background-color: #7c3aed; border-color: #7c3aed; }
+        input:checked + .e-slider:before { transform: translateX(18px); }
+
         .rainbow-text { background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); -webkit-background-clip: text; color: transparent; animation: rainbow-anim 3s linear infinite; }
         @keyframes rainbow-anim { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
         @keyframes e-fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -114,85 +133,102 @@
     `;
 
     const ECLIPSE_HTML = `
-        <div id="eclipse-dashboard-container">
-            <div id="eclipse-dashboard">
-                <div class="e-sidebar">
-                    <div class="e-logo"><div class="e-logo-icon">E</div><span>ECLIPSE</span></div>
-                    <nav>
-                        <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">PLAYER</div>
-                        <div class="e-nav-item" onclick="window.eclipseTab('dual', this)">DUAL</div>
-                        <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUALS</div>
-                        <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVIEW</div>
-                    </nav>
+        <div id="eclipse-dashboard">
+            <div class="e-sidebar">
+                <div class="e-logo">
+                    <div class="e-logo-icon">E</div>
+                    <span style="font-weight:700; font-size:18px;">Eclipse <span style="color:#7c3aed;">v29</span></span>
                 </div>
-                <div class="e-content">
-                    <div id="tab-player" class="e-tab-page active">
-                        <h2>Player Config</h2>
-                        <label class="e-label">Main Nickname</label>
-                        <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname...">
-                        <label class="e-label">Skin Asset URL</label>
-                        <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." oninput="window.checkSkin(this.value, 'main')">
-                    </div>
-                    <div id="tab-dual" class="e-tab-page">
-                        <h2>Dual Identity</h2>
-                        <label class="e-label">Minion Nickname</label>
-                        <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname...">
-                        <label class="e-label">Minion Skin Asset</label>
-                        <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
-                    </div>
-                    <div id="tab-visuals" class="e-tab-page">
-                        <h2>Visuals & Misc</h2>
-                        
-                        <div class="e-setting-group">
-                            <label style="color:#ffffff; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin-bottom:10px; font-weight:700;">
-                                <input type="checkbox" id="eclipse-border-toggle" checked style="width:auto; margin:0;" onchange="window.toggleDarkBorder(this.checked)">
-                                Map Dark Border (White Outline)
-                            </label>
-                            <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin:0;">
-                                <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)">
-                                Show Cell Lines
-                            </label>
-                        </div>
-                        
-                        <div class="e-setting-group">
-                            <label class="e-label">Cell Overlay Style</label>
-                            <select id="eclipse-outline-select" class="e-select" style="margin-bottom:10px;" onchange="window.setOutlineType(this.value)">
-                                <option value="original">Original (Game Default)</option>
-                                <option value="color">Custom Ring (Thin & Smooth)</option>
-                                <option value="arrow">Arrow Outline (Dynamic Size)</option>
-                            </select>
+                <div class="e-nav-item active" onclick="window.eclipseTab('general', this)">⚙️ General</div>
+                <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">🎨 Visuals</div>
+                <div class="e-nav-item" onclick="window.eclipseTab('keybinds', this)">⌨️ Keybinds</div>
+                <div id="nav-skin-tab" class="e-nav-item hidden" onclick="window.eclipseTab('skins', this)">🖼️ Skin Preview</div>
+            </div>
+            
+            <div class="e-content">
+                <div id="tab-general" class="e-tab-page active">
+                    <h2>Game Settings</h2>
+                    <span class="e-label">Main Account</span>
+                    <input type="text" id="main-nick" class="e-input" placeholder="Nickname..." oninput="localStorage.setItem('nickname', this.value)">
+                    <input type="text" id="main-skin" class="e-input" placeholder="Skin URL..." oninput="window.checkSkin(this.value, 'main')">
+                    
+                    <span class="e-label">Dual / Bot</span>
+                    <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname..." oninput="localStorage.setItem('dualNickname', this.value)">
+                    <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
+                    
+                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">INJECT & PLAY</button>
+                </div>
 
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                                <span class="rainbow-text" style="font-weight:bold; font-size:13px;">Rainbow Chroma Ring</span>
-                                <input type="checkbox" id="eclipse-chroma-toggle" style="width:auto; margin:0;" onchange="window.toggleChroma(this.checked)">
-                            </div>
-                            
-                            <div id="color-picker-container" style="display:none;">
-                                <label class="e-label">Ring Color (Solid)</label>
-                                <input type="color" id="eclipse-ring-color" value="#7c3aed" onchange="window.setRingColor(this.value)">
-                            </div>
+                <div id="tab-visuals" class="e-tab-page">
+                    <h2>Visuals</h2>
+                    
+                    <div class="e-setting-group">
+                        <div class="e-switch-row">
+                            <span class="e-switch-label">Line to Mouse</span>
+                            <label class="e-switch">
+                                <input type="checkbox" id="eclipse-lines-toggle" onchange="window.toggleLines(this.checked)">
+                                <span class="e-slider"></span>
+                            </label>
                         </div>
-                        <div class="e-setting-group">
-                            <label class="e-label">CUSTOM DRAW DELAY (MS)</label>
-                            <input type="number" id="visual-draw-delay" class="e-input" placeholder="Default is 120" style="margin-bottom:0;">
-                        </div>
-                        <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
-                            <div class="e-keybind-row">
-                                <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
-                                <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
-                            </div>
+                        <div class="e-switch-row">
+                            <span class="e-switch-label">Black Background (Fix)</span>
+                            <label class="e-switch">
+                                <input type="checkbox" id="eclipse-border-toggle" onchange="window.toggleDarkBorder(this.checked)">
+                                <span class="e-slider"></span>
+                            </label>
                         </div>
                     </div>
-                    <div id="tab-skin-preview" class="e-tab-page">
-                        <h2>Asset Previews</h2>
-                        <div class="e-preview-container">
-                            <div class="e-preview-box"><span class="e-preview-label">MAIN</span><div class="e-skin-circle"><img id="preview-main-img" src=""></div></div>
-                            <div class="e-preview-box"><span class="e-preview-label">DUAL</span><div class="e-skin-circle"><img id="preview-dual-img" src=""></div></div>
+
+                    <span class="e-label">Outline Style</span>
+                    <select id="eclipse-outline-select" class="e-select" onchange="window.setOutlineType(this.value)">
+                        <option value="original">Original (Default)</option>
+                        <option value="color">Custom Ring</option>
+                        <option value="arrow">Direction Arrow</option>
+                    </select>
+
+                    <div class="e-setting-group">
+                         <div class="e-switch-row">
+                            <span class="e-switch-label rainbow-text">RGB Chroma Mode</span>
+                            <label class="e-switch">
+                                <input type="checkbox" id="eclipse-chroma-toggle" onchange="window.toggleChroma(this.checked)">
+                                <span class="e-slider"></span>
+                            </label>
                         </div>
                     </div>
-                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">APPLY & CLOSE</button>
+
+                    <div id="color-picker-container" style="display:none;">
+                        <span class="e-label">Ring Color</span>
+                        <input type="color" id="eclipse-ring-color" value="#7c3aed" oninput="window.setRingColor(this.value)">
+                    </div>
+
+                    <span class="e-label">Draw Delay (ms)</span>
+                    <input type="number" id="visual-draw-delay" class="e-input" placeholder="0 = No Delay">
                 </div>
+
+                <div id="tab-keybinds" class="e-tab-page">
+                    <h2>Keybinds</h2>
+                    <div class="e-setting-group">
+                        <div class="e-keybind-row">
+                            <span class="e-switch-label">Clip Recorder</span>
+                            <input type="button" id="bind-clip-input" class="e-keybind-input" value="R" onclick="window.startRebind('clip', this)">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-skins" class="e-tab-page">
+                    <h2>Skin Preview</h2>
+                    <div class="e-preview-container">
+                        <div class="e-preview-box">
+                            <div class="e-skin-circle"><img id="preview-main-img" src=""></div>
+                            <span style="margin-top:10px; color:#aaa; font-size:12px; font-weight:600;">MAIN</span>
+                        </div>
+                        <div class="e-preview-box">
+                            <div class="e-skin-circle"><img id="preview-dual-img" src=""></div>
+                            <span style="margin-top:10px; color:#aaa; font-size:12px; font-weight:600;">DUAL</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     `;
@@ -214,6 +250,21 @@
         } else {
             if (window.game.settings.hideOutlines !== true) window.game.settings.hideOutlines = true;
             if (window.game.settings.cellBorderSize !== 0) window.game.settings.cellBorderSize = 0;
+        }
+    };
+
+    window.updateTheme = () => {
+        if (!window.game || !window.game.renderer) return;
+
+        if (window.eclipse_darkBorder) {
+            document.body.classList.add('eclipse-dark');
+            window.game.renderer.backgroundColor = 0x000000;
+            if (window.game.settings) window.game.settings.showBackgroundImage = false;
+        } else {
+            document.body.classList.remove('eclipse-dark');
+            // FIX: Uses 0x0c0c0c (default) instead of guessing
+            window.game.renderer.backgroundColor = DEFAULT_GAME_BG; 
+            if (window.game.settings) window.game.settings.showBackgroundImage = true;
         }
     };
 
@@ -251,6 +302,7 @@
         localStorage.setItem('eclipse_dark_border', window.eclipse_darkBorder); 
 
         window.forceOutlineCheck();
+        window.updateTheme(); 
 
         if (window.game) {
             if(!window.game.dualIdentity) window.game.dualIdentity = {};
@@ -259,17 +311,17 @@
             if (window.game.sendDualIdentity) window.game.sendDualIdentity();
         }
 
-        document.body.style.backgroundColor = '#000000';
-        const cvs = document.querySelector('canvas');
-        if(cvs) { cvs.style.border = 'none'; cvs.style.outline = 'none'; }
-
         showToast("System Injected 💉");
         const menu = document.getElementById('eclipse-main-wrap');
         if(menu) menu.remove();
     };
 
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
-    window.toggleDarkBorder = (checked) => { window.eclipse_darkBorder = checked; };
+    
+    window.toggleDarkBorder = (checked) => { 
+        window.eclipse_darkBorder = checked;
+        window.updateTheme(); 
+    };
     
     window.toggleChroma = (checked) => { 
         window.eclipse_chromaMode = checked;
@@ -310,7 +362,8 @@
         }
 
         let wrap = document.createElement('div');
-        wrap.id = "eclipse-main-wrap"; wrap.innerHTML = ECLIPSE_HTML;
+        wrap.id = "eclipse-main-wrap"; 
+        wrap.innerHTML = ECLIPSE_HTML;
         document.body.appendChild(wrap);
         wrap.onclick = (e) => { if(e.target === wrap) wrap.remove(); };
 
@@ -346,6 +399,7 @@
             }
             if(document.getElementById('eclipse-ring-color')) document.getElementById('eclipse-ring-color').value = savedColor;
             if(document.getElementById('eclipse-lines-toggle')) document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
+            
             if(document.getElementById('eclipse-border-toggle')) document.getElementById('eclipse-border-toggle').checked = window.eclipse_darkBorder;
             
             if(document.getElementById('eclipse-chroma-toggle')) {
@@ -766,11 +820,18 @@
 
         setInterval(() => {
             if (window.game) {
-                if (window.game.renderer && window.game.renderer.backgroundColor !== 0x000000) {
-                    window.game.renderer.backgroundColor = 0x000000;
+                if (!window.eclipse_darkBorder) {
+                    if (window.game.renderer && window.game.renderer.backgroundColor === 0x000000) {
+                        window.game.renderer.backgroundColor = DEFAULT_GAME_BG;
+                    }
+                } else {
+                    if (window.game.renderer && window.game.renderer.backgroundColor !== 0x000000) {
+                        window.game.renderer.backgroundColor = 0x000000;
+                    }
                 }
-                if (window.game.settings && window.game.settings.showBackgroundImage) {
-                    window.game.settings.showBackgroundImage = false;
+
+                if (window.game.settings && window.game.settings.showBackgroundImage !== !window.eclipse_darkBorder) {
+                    window.game.settings.showBackgroundImage = !window.eclipse_darkBorder;
                 }
                 
                 const allCanvas = document.querySelectorAll('canvas');
