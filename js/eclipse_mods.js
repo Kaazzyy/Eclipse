@@ -7,7 +7,7 @@
     ARROW_ASSET.src = "https://i.imgur.com/o4pRDVJ.png";
 
     const TARGET_ARROW = new Image();
-    TARGET_ARROW.src = "https://i.imgur.com/8Xb9s5b.png";
+    TARGET_ARROW.src = "https://i.imgur.com/8Xb9s5b.png"; 
 
     let KEY_CLIP = 'KeyR';
     let KEY_CLIP_ALT = false;
@@ -18,10 +18,10 @@
     window.eclipse_outlineType = 'original';
     window.eclipse_ringColor = '#7c3aed';
     window.eclipse_chromaMode = false;
-    window.eclipse_darkBorder = true;
-
+    window.eclipse_darkBorder = true; 
+    
     window.eclipse_targetPid = null;
-    let cachedMiniCanvas = null;
+    let cachedMiniCanvas = null; 
 
     window.eclipseSkinBackups = new Map();
     window.hiddenSkinPids = new Set();
@@ -41,9 +41,9 @@
 
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
-
-        html, body, #game-container, #canvas-container {
-            background-color: #000000 !important;
+        
+        html, body, #game-container, #canvas-container { 
+            background-color: #000000 !important; 
             background: #000000 !important;
             background-image: none !important;
         }
@@ -119,79 +119,79 @@
                 <div class="e-sidebar">
                     <div class="e-logo"><div class="e-logo-icon">E</div><span>ECLIPSE</span></div>
                     <nav>
-                        <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">JOGADOR</div>
+                        <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">PLAYER</div>
                         <div class="e-nav-item" onclick="window.eclipseTab('dual', this)">DUAL</div>
-                        <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUAIS</div>
-                        <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVISÃO</div>
+                        <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUALS</div>
+                        <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVIEW</div>
                     </nav>
                 </div>
                 <div class="e-content">
                     <div id="tab-player" class="e-tab-page active">
-                        <h2>Configuração de Jogador</h2>
-                        <label class="e-label">Nome Principal</label>
-                        <input type="text" id="main-nick" class="e-input" placeholder="Insere o nome...">
-                        <label class="e-label">URL da Skin</label>
-                        <input type="text" id="main-skin" class="e-input" placeholder="Cola o URL da skin..." oninput="window.checkSkin(this.value, 'main')">
+                        <h2>Player Config</h2>
+                        <label class="e-label">Main Nickname</label>
+                        <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname...">
+                        <label class="e-label">Skin Asset URL</label>
+                        <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." oninput="window.checkSkin(this.value, 'main')">
                     </div>
                     <div id="tab-dual" class="e-tab-page">
-                        <h2>Identidade Dual</h2>
-                        <label class="e-label">Nome Secundário</label>
-                        <input type="text" id="dual-nick" class="e-input" placeholder="Nome do bot/dual...">
-                        <label class="e-label">Skin Secundária</label>
-                        <input type="text" id="dual-skin" class="e-input" placeholder="Cola o URL da skin..." oninput="window.checkSkin(this.value, 'dual')">
+                        <h2>Dual Identity</h2>
+                        <label class="e-label">Minion Nickname</label>
+                        <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname...">
+                        <label class="e-label">Minion Skin Asset</label>
+                        <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
                     </div>
                     <div id="tab-visuals" class="e-tab-page">
-                        <h2>Visuais e Outros</h2>
-
+                        <h2>Visuals & Misc</h2>
+                        
                         <div class="e-setting-group">
                             <label style="color:#ffffff; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin-bottom:10px; font-weight:700;">
                                 <input type="checkbox" id="eclipse-border-toggle" checked style="width:auto; margin:0;" onchange="window.toggleDarkBorder(this.checked)">
-                                Borda Escura (Contorno Branco)
+                                Map Dark Border (White Outline)
                             </label>
                             <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin:0;">
                                 <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)">
-                                Mostrar Linhas
+                                Show Cell Lines
                             </label>
                         </div>
-
+                        
                         <div class="e-setting-group">
-                            <label class="e-label">Estilo do Overlay</label>
+                            <label class="e-label">Cell Overlay Style</label>
                             <select id="eclipse-outline-select" class="e-select" style="margin-bottom:10px;" onchange="window.setOutlineType(this.value)">
-                                <option value="original">Original (Padrão)</option>
-                                <option value="color">Anel Personalizado (Fino)</option>
-                                <option value="arrow">Seta de Contorno</option>
+                                <option value="original">Original (Game Default)</option>
+                                <option value="color">Custom Ring (Thin & Smooth)</option>
+                                <option value="arrow">Arrow Outline (Dynamic Size)</option>
                             </select>
 
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                                <span class="rainbow-text" style="font-weight:bold; font-size:13px;">Anel Chroma</span>
+                                <span class="rainbow-text" style="font-weight:bold; font-size:13px;">Rainbow Chroma Ring</span>
                                 <input type="checkbox" id="eclipse-chroma-toggle" style="width:auto; margin:0;" onchange="window.toggleChroma(this.checked)">
                             </div>
-
+                            
                             <div id="color-picker-container" style="display:none;">
-                                <label class="e-label">Cor do Anel</label>
+                                <label class="e-label">Ring Color (Solid)</label>
                                 <input type="color" id="eclipse-ring-color" value="#7c3aed" onchange="window.setRingColor(this.value)">
                             </div>
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label">DELAY DE DESENHO (MS)</label>
-                            <input type="number" id="visual-draw-delay" class="e-input" placeholder="Padrão é 120" style="margin-bottom:0;">
+                            <label class="e-label">CUSTOM DRAW DELAY (MS)</label>
+                            <input type="number" id="visual-draw-delay" class="e-input" placeholder="Default is 120" style="margin-bottom:0;">
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">ATALHOS</label>
+                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
                             <div class="e-keybind-row">
-                                <span style="font-size:13px; font-weight:600; color:#eee;">Gravador</span>
+                                <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
                             </div>
                         </div>
                     </div>
                     <div id="tab-skin-preview" class="e-tab-page">
-                        <h2>Previsão de Skins</h2>
+                        <h2>Asset Previews</h2>
                         <div class="e-preview-container">
-                            <div class="e-preview-box"><span class="e-preview-label">PRINCIPAL</span><div class="e-skin-circle"><img id="preview-main-img" src=""></div></div>
-                            <div class="e-preview-box"><span class="e-preview-label">SECUNDÁRIO</span><div class="e-skin-circle"><img id="preview-dual-img" src=""></div></div>
+                            <div class="e-preview-box"><span class="e-preview-label">MAIN</span><div class="e-skin-circle"><img id="preview-main-img" src=""></div></div>
+                            <div class="e-preview-box"><span class="e-preview-label">DUAL</span><div class="e-skin-circle"><img id="preview-dual-img" src=""></div></div>
                         </div>
                     </div>
-                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">APLICAR E FECHAR</button>
+                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">APPLY & CLOSE</button>
                 </div>
             </div>
         </div>
@@ -242,13 +242,13 @@
             const delayNum = parseInt(drawDelayVal);
             if (window.settings) window.settings.drawDelay = delayNum;
             localStorage.setItem('drawDelay', delayNum);
-            showToast(`Delay definido para ${delayNum}ms ⚡`);
+            showToast(`Draw Delay set to ${delayNum}ms ⚡`);
         }
 
         localStorage.setItem('eclipse_outline', window.eclipse_outlineType);
         localStorage.setItem('eclipse_ring_color', window.eclipse_ringColor);
-        localStorage.setItem('eclipse_chroma', window.eclipse_chromaMode);
-        localStorage.setItem('eclipse_dark_border', window.eclipse_darkBorder);
+        localStorage.setItem('eclipse_chroma', window.eclipse_chromaMode); 
+        localStorage.setItem('eclipse_dark_border', window.eclipse_darkBorder); 
 
         window.forceOutlineCheck();
 
@@ -263,15 +263,15 @@
         const cvs = document.querySelector('canvas');
         if(cvs) { cvs.style.border = 'none'; cvs.style.outline = 'none'; }
 
-        showToast("Sistema Injetado 💉");
+        showToast("System Injected 💉");
         const menu = document.getElementById('eclipse-main-wrap');
         if(menu) menu.remove();
     };
 
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
     window.toggleDarkBorder = (checked) => { window.eclipse_darkBorder = checked; };
-
-    window.toggleChroma = (checked) => {
+    
+    window.toggleChroma = (checked) => { 
         window.eclipse_chromaMode = checked;
         const picker = document.getElementById('color-picker-container');
         if(picker) picker.style.display = (window.eclipse_outlineType === 'color' && !checked) ? 'block' : 'none';
@@ -332,7 +332,7 @@
             const savedOutline = localStorage.getItem('eclipse_outline') || 'original';
             const savedColor = localStorage.getItem('eclipse_ring_color') || '#7c3aed';
             const savedChroma = localStorage.getItem('eclipse_chroma') === 'true';
-
+            
             const savedBorder = localStorage.getItem('eclipse_dark_border');
             window.eclipse_darkBorder = (savedBorder === null) ? true : (savedBorder === 'true');
 
@@ -347,7 +347,7 @@
             if(document.getElementById('eclipse-ring-color')) document.getElementById('eclipse-ring-color').value = savedColor;
             if(document.getElementById('eclipse-lines-toggle')) document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
             if(document.getElementById('eclipse-border-toggle')) document.getElementById('eclipse-border-toggle').checked = window.eclipse_darkBorder;
-
+            
             if(document.getElementById('eclipse-chroma-toggle')) {
                 document.getElementById('eclipse-chroma-toggle').checked = savedChroma;
                 window.toggleChroma(savedChroma);
@@ -403,14 +403,14 @@
     };
 
     window.triggerSave = () => {
-        if (isProcessing) return showToast("A guardar...", true);
-        if (!recorders[0].rec) { initRecorder(); return showToast("A iniciar motor...", true); }
+        if (isProcessing) return showToast("Saving...", true);
+        if (!recorders[0].rec) { initRecorder(); return showToast("Starting Engine...", true); }
         isProcessing = true;
         const now = Date.now();
         let idx = (now - recorders[0].startTime > now - recorders[1].startTime) ? 0 : 1;
         if (recorders[idx].chunks.length === 0) idx = idx === 0 ? 1 : 0;
         const target = recorders[idx];
-        showToast("Clip Guardado! 🎬");
+        showToast("Clip Saved! 🎬");
         target.rec.onstop = () => {
             const blob = new Blob(target.chunks, { type: "video/webm" });
             const url = URL.createObjectURL(blob);
@@ -430,7 +430,7 @@
     window.startRebind = (action, inputEl) => {
         if(isRebinding) return;
         isRebinding = true;
-        inputEl.value = "PRESSIONA TECLA..."; inputEl.classList.add('recording');
+        inputEl.value = "PRESS KEY..."; inputEl.classList.add('recording');
         const handler = (e) => {
             e.preventDefault(); e.stopPropagation();
             const isAlt = e.altKey; const isCtrl = e.ctrlKey; const isShift = e.shiftKey;
@@ -458,7 +458,7 @@
         const g = window.game; window.eclipseModeActive = false; spectateTargetId = null;
         if (g && eclipseSpectateTicker) { g.ticker.remove(eclipseSpectateTicker); eclipseSpectateTicker = null; }
         if (g && realCameraRefs) { g.camera.position = realCameraRefs.position; g.camera.scale = realCameraRefs.scale; realCameraRefs = null; }
-        const btn = document.getElementById('eclipse-stop-spectate'); if (btn) btn.remove(); showToast("Câmara Reposta");
+        const btn = document.getElementById('eclipse-stop-spectate'); if (btn) btn.remove(); showToast("Camera Reset");
     };
     window.eclipseAction = async (type) => {
         if (targetPid === null) return;
@@ -470,11 +470,11 @@
             case 'target':
                 if (window.eclipse_targetPid === targetPid) {
                     window.eclipse_targetPid = null;
-                    showToast("Alvo Removido");
+                    showToast("Target Removed");
                     document.querySelectorAll('.eclipse-target-text').forEach(el => el.classList.remove('eclipse-target-text'));
                 } else {
                     window.eclipse_targetPid = targetPid;
-                    showToast(`Alvo: ${pName} 🎯`);
+                    showToast(`Targeting: ${pName} 🎯`);
                 }
                 break;
             case 'spectate': {
@@ -486,7 +486,7 @@
                 g.camera.scale = decoyCamera.scale;
                 const btn = document.createElement('button');
                 btn.id = 'eclipse-stop-spectate';
-                btn.innerHTML = `❌ PARAR VISÃO (${pName})`;
+                btn.innerHTML = `❌ STOP VIEW (${pName})`;
                 btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit';";
                 btn.onclick = window.stopSpectate;
                 document.body.appendChild(btn);
@@ -511,11 +511,11 @@
                 if (g.ticker) g.ticker.add(eclipseSpectateTicker);
                 break;
             }
-            case 'block': showToast("Bloquear/Perfil ⚙️"); break;
-            case 'hide': window.hiddenSkinPids.add(targetPid); if(skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Oculta"); break;
-            case 'show': window.hiddenSkinPids.delete(targetPid); showToast("Skin Visível"); break;
-            case 'yoink': if(skinUrl) { let s=[]; try{s=JSON.parse(localStorage.getItem('skins')||'[]')}catch(e){} if(!s.includes(skinUrl)){s.unshift(skinUrl); localStorage.setItem('skins',JSON.stringify(s)); showToast("Skin Guardada! 💎");} } else showToast("Sem Skin ❌", true); break;
-            case 'copy': if(skinUrl) { navigator.clipboard.writeText(skinUrl); showToast("Copiado 🔗"); } break;
+            case 'block': showToast("Block/Profile ⚙️"); break;
+            case 'hide': window.hiddenSkinPids.add(targetPid); if(skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Hidden"); break;
+            case 'show': window.hiddenSkinPids.delete(targetPid); showToast("Skin Revealed"); break;
+            case 'yoink': if(skinUrl) { let s=[]; try{s=JSON.parse(localStorage.getItem('skins')||'[]')}catch(e){} if(!s.includes(skinUrl)){s.unshift(skinUrl); localStorage.setItem('skins',JSON.stringify(s)); showToast("Skin Saved! 💎");} } else showToast("No Skin ❌", true); break;
+            case 'copy': if(skinUrl) { navigator.clipboard.writeText(skinUrl); showToast("Copied 🔗"); } break;
         }
     };
 
@@ -532,7 +532,7 @@
 
     const init = () => {
         if(localStorage.getItem('eclipse_outline')) window.eclipse_outlineType = localStorage.getItem('eclipse_outline');
-        if(localStorage.getItem('eclipse_chroma') === 'true') window.eclipse_chromaMode = true;
+        if(localStorage.getItem('eclipse_chroma') === 'true') window.eclipse_chromaMode = true; 
         if(localStorage.getItem('eclipse_dark_border') === 'true') window.eclipse_darkBorder = true;
 
         contextMenu = document.createElement('div'); contextMenu.id = 'eclipse-ctx-menu';
@@ -553,22 +553,22 @@
             const found = g.nodelist.find(n => n.pid !== g.playerId && Math.sqrt((n.x-g.mouse.x)**2 + (n.y-g.mouse.y)**2) < (n.size+80));
             if (found) {
                 e.preventDefault(); targetPid = found.pid;
-                const pName = g.playerManager?.players?.[targetPid]?.name || "Desconhecido";
+                const pName = g.playerManager?.players?.[targetPid]?.name || "Unknown";
                 const isHidden = window.hiddenSkinPids.has(targetPid);
                 const isTarget = (window.eclipse_targetPid === targetPid);
                 contextMenu.innerHTML = `
                     <div style="background:rgba(124,58,237,0.2); color:#a78bfa; padding:12px; font-weight:800; text-align:center; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.05); text-transform:uppercase;">${pName}</div>
                     <div style="padding:6px;">
-                        <div class="e-ctx-item" onclick="window.eclipseAction('target')"><span>🎯</span> ${isTarget ? 'Remover Alvo' : 'Marcar Alvo'}</div>
-                        <div class="e-ctx-item" onclick="window.eclipseAction('spectate')"><span>🔭</span> Observar</div>
-                        <div class="e-ctx-item" onclick="window.eclipseAction('block')"><span>⚙️</span> Bloquear/Perfil</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('target')"><span>🎯</span> ${isTarget ? 'Untarget' : 'Target'}</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('spectate')"><span>🔭</span> Spectate</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('block')"><span>⚙️</span> Block/Profile</div>
                         <div style="height:1px; background:rgba(255,255,255,0.1); margin:4px 10px;"></div>
                         ${isHidden
-                            ? `<div class="e-ctx-item" onclick="window.eclipseAction('show')"><span style="color:#4ade80">✨</span> Mostrar Skin</div>`
-                            : `<div class="e-ctx-item" onclick="window.eclipseAction('hide')"><span style="color:#f87171">👁️</span> Ocultar Skin</div>`
+                            ? `<div class="e-ctx-item" onclick="window.eclipseAction('show')"><span style="color:#4ade80">✨</span> Show Skin</div>`
+                            : `<div class="e-ctx-item" onclick="window.eclipseAction('hide')"><span style="color:#f87171">👁️</span> Hide Skin</div>`
                         }
-                        <div class="e-ctx-item" onclick="window.eclipseAction('yoink')"><span>💎</span> Roubar Skin</div>
-                        <div class="e-ctx-item" onclick="window.eclipseAction('copy')"><span>🔗</span> Copiar URL</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('yoink')"><span>💎</span> Yoink Skin</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('copy')"><span>🔗</span> Copy URL</div>
                     </div>`;
                 contextMenu.style.display = 'block'; contextMenu.style.left = e.clientX + 'px'; contextMenu.style.top = e.clientY + 'px';
             } else { contextMenu.style.display = 'none'; }
@@ -595,7 +595,7 @@
                 const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
                 const s = cam.scale.x;
                 const sortedAllNodes = [...g.nodelist].sort((a, b) => a.size - b.size);
-
+                
                 let currentColor;
                 if (window.eclipse_chromaMode) {
                     const hue = Math.floor((Date.now() / 10) % 360);
@@ -654,6 +654,7 @@
 
                         const dx = avgTx - avgPx;
                         const dy = avgTy - avgPy;
+                        
                         const distGameUnits = Math.sqrt(dx*dx + dy*dy);
                         const touchDistance = (maxSize + (targetNodes[0].size || 50)) + 200;
 
@@ -661,14 +662,14 @@
                             const screenPx = (avgPx - cam.position.x) * s + (innerWidth/2);
                             const screenPy = (avgPy - cam.position.y) * s + (innerHeight/2);
                             const angle = Math.atan2(dy, dx);
-
-                            let orbitRadius = (maxSize * s) + 60;
-                            if (orbitRadius < 40) orbitRadius = 40;
+                            
+                            let orbitRadius = (maxSize * s) + 60; 
+                            if (orbitRadius < 40) orbitRadius = 40; 
 
                             ctx.save();
                             ctx.translate(screenPx, screenPy);
                             ctx.rotate(angle);
-                            ctx.translate(orbitRadius, 0);
+                            ctx.translate(orbitRadius, 0); 
                             ctx.rotate(Math.PI/2);
                             ctx.fillStyle = "red";
                             ctx.beginPath();
@@ -771,19 +772,19 @@
                 if (window.game.settings && window.game.settings.showBackgroundImage) {
                     window.game.settings.showBackgroundImage = false;
                 }
-
+                
                 const allCanvas = document.querySelectorAll('canvas');
                 cachedMiniCanvas = null;
                 for(let c of allCanvas) {
                     if (c.width < window.innerWidth * 0.4 && c.height < window.innerHeight * 0.4 && c.style.display !== 'none') {
-                        cachedMiniCanvas = c;
+                        cachedMiniCanvas = c; 
                         break;
                     }
                 }
 
                 if (window.eclipse_targetPid && window.game.playerManager && window.game.playerManager.players[window.eclipse_targetPid]) {
                     const targetName = window.game.playerManager.players[window.eclipse_targetPid].name;
-
+                    
                     const currentHighlights = document.querySelectorAll('.eclipse-target-text');
                     currentHighlights.forEach(el => {
                         if (el.textContent.trim() !== targetName) el.classList.remove('eclipse-target-text');
@@ -808,7 +809,7 @@
                     el.style.display = 'none';
                 }
             }
-        }, 500);
+        }, 500); 
 
         const trig = document.createElement('div');
         trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:rgba(124,58,237,0.5); border:1px solid #7c3aed; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:0.3s;";
