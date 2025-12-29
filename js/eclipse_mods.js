@@ -1,14 +1,13 @@
 (function() {
     'use strict';
 
-    console.log("[ECLIPSE] v13.14 Loaded - Original Base Optimized (No Lag)");
-
-    // =================================================================
-    // 1. ASSETS & CONFIG
-    // =================================================================
+    console.log("[ECLIPSE] v1.02 - Beta Release");
 
     const ARROW_ASSET = new Image();
     ARROW_ASSET.src = "https://i.imgur.com/o4pRDVJ.png";
+
+    const TARGET_ARROW = new Image();
+    TARGET_ARROW.src = "https://i.imgur.com/8Xb9s5b.png";
 
     let KEY_CLIP = 'KeyR';
     let KEY_CLIP_ALT = false;
@@ -18,6 +17,12 @@
     window.eclipse_showLines = true;
     window.eclipse_outlineType = 'original';
     window.eclipse_ringColor = '#7c3aed';
+    window.eclipse_chromaMode = false;
+    window.eclipse_darkBorder = true;
+
+    window.eclipse_targetPid = null;
+    let cachedMiniCanvas = null;
+
     window.eclipseSkinBackups = new Map();
     window.hiddenSkinPids = new Set();
 
@@ -34,14 +39,43 @@
     let realCameraRefs = null;
     let decoyCamera = { position: { x: 0, y: 0 }, scale: { x: 1, y: 1, set: function(s) { this.x = s; this.y = s; } } };
 
-    // =================================================================
-    // 2. CSS STYLE
-    // =================================================================
     const ECLIPSE_CSS = `
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+        html, body, #game-container, #canvas-container {
+            background-color: #000000 !important;
+            background: #000000 !important;
+            background-image: none !important;
+        }
+
+        #background-img, .background-image, .bg-overlay, .grid-layer {
+            display: none !important;
+            opacity: 0 !important;
+        }
+
+        canvas, #game-canvas {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        #merge-timer, .merge-timer, .timer-box, .ui-timer {
+            display: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        .eclipse-target-text {
+            color: #ff0000 !important;
+            text-shadow: 0 0 8px rgba(255, 0, 0, 0.8) !important;
+            font-weight: 900 !important;
+            font-style: italic !important;
+            border-color: #ff0000 !important;
+        }
+
         #eclipse-dashboard-container * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         #eclipse-main-wrap { position: fixed; inset: 0; z-index: 9999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
-        #eclipse-dashboard { display: flex; width: 750px; height: 550px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
+        #eclipse-dashboard { display: flex; width: 750px; height: 600px; background: rgba(13, 13, 16, 0.98); border-radius: 24px; border: 1px solid rgba(124, 58, 237, 0.2); overflow: hidden; color: white; box-shadow: 0 50px 100px rgba(0,0,0,0.9); position: relative; }
         .e-sidebar { width: 220px; background: rgba(255, 255, 255, 0.02); border-right: 1px solid rgba(255,255,255,0.05); padding: 40px 25px; display: flex; flex-direction: column; }
         .e-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 45px; }
         .e-logo-icon { width: 36px; height: 36px; background: #7c3aed; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: white; }
@@ -73,6 +107,8 @@
         .e-skin-circle img.loaded { opacity: 1; }
         .e-ctx-item { padding: 10px 12px; color: #e2e8f0; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; transition: 0.2s; }
         .e-ctx-item:hover { background: rgba(124, 58, 237, 0.15); color: white; }
+        .rainbow-text { background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); -webkit-background-clip: text; color: transparent; animation: rainbow-anim 3s linear infinite; }
+        @keyframes rainbow-anim { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
         @keyframes e-fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     `;
@@ -83,77 +119,83 @@
                 <div class="e-sidebar">
                     <div class="e-logo"><div class="e-logo-icon">E</div><span>ECLIPSE</span></div>
                     <nav>
-                        <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">PLAYER</div>
+                        <div class="e-nav-item active" onclick="window.eclipseTab('player', this)">JOGADOR</div>
                         <div class="e-nav-item" onclick="window.eclipseTab('dual', this)">DUAL</div>
-                        <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUALS</div>
-                        <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVIEW</div>
+                        <div class="e-nav-item" onclick="window.eclipseTab('visuals', this)">VISUAIS</div>
+                        <div class="e-nav-item hidden" id="nav-skin-tab" onclick="window.eclipseTab('skin-preview', this)">PREVISÃO</div>
                     </nav>
                 </div>
                 <div class="e-content">
                     <div id="tab-player" class="e-tab-page active">
-                        <h2>Player Config</h2>
-                        <label class="e-label">Main Nickname</label>
-                        <input type="text" id="main-nick" class="e-input" placeholder="Enter Nickname...">
-                        <label class="e-label">Skin Asset URL</label>
-                        <input type="text" id="main-skin" class="e-input" placeholder="Paste Skin URL..." oninput="window.checkSkin(this.value, 'main')">
+                        <h2>Configuração de Jogador</h2>
+                        <label class="e-label">Nome Principal</label>
+                        <input type="text" id="main-nick" class="e-input" placeholder="Insere o nome...">
+                        <label class="e-label">URL da Skin</label>
+                        <input type="text" id="main-skin" class="e-input" placeholder="Cola o URL da skin..." oninput="window.checkSkin(this.value, 'main')">
                     </div>
                     <div id="tab-dual" class="e-tab-page">
-                        <h2>Dual Identity</h2>
-                        <label class="e-label">Minion Nickname</label>
-                        <input type="text" id="dual-nick" class="e-input" placeholder="Dual Nickname...">
-                        <label class="e-label">Minion Skin Asset</label>
-                        <input type="text" id="dual-skin" class="e-input" placeholder="Dual Skin URL..." oninput="window.checkSkin(this.value, 'dual')">
+                        <h2>Identidade Dual</h2>
+                        <label class="e-label">Nome Secundário</label>
+                        <input type="text" id="dual-nick" class="e-input" placeholder="Nome do bot/dual...">
+                        <label class="e-label">Skin Secundária</label>
+                        <input type="text" id="dual-skin" class="e-input" placeholder="Cola o URL da skin..." oninput="window.checkSkin(this.value, 'dual')">
                     </div>
                     <div id="tab-visuals" class="e-tab-page">
-                        <h2>Visuals & Misc</h2>
+                        <h2>Visuais e Outros</h2>
+
                         <div class="e-setting-group">
+                            <label style="color:#ffffff; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin-bottom:10px; font-weight:700;">
+                                <input type="checkbox" id="eclipse-border-toggle" checked style="width:auto; margin:0;" onchange="window.toggleDarkBorder(this.checked)">
+                                Borda Escura (Contorno Branco)
+                            </label>
                             <label style="color:#a78bfa; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; text-transform:none; margin:0;">
                                 <input type="checkbox" id="eclipse-lines-toggle" checked style="width:auto; margin:0;" onchange="window.toggleLines(this.checked)">
-                                Show Cell Lines
+                                Mostrar Linhas
                             </label>
                         </div>
+
                         <div class="e-setting-group">
-                            <label class="e-label">Cell Overlay Style</label>
+                            <label class="e-label">Estilo do Overlay</label>
                             <select id="eclipse-outline-select" class="e-select" style="margin-bottom:10px;" onchange="window.setOutlineType(this.value)">
-                                <option value="original">Original (Game Default)</option>
-                                <option value="color">Custom Ring (Thin & Smooth)</option>
-                                <option value="arrow">Arrow Outline (Dynamic Size)</option>
+                                <option value="original">Original (Padrão)</option>
+                                <option value="color">Anel Personalizado (Fino)</option>
+                                <option value="arrow">Seta de Contorno</option>
                             </select>
 
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                                <span class="rainbow-text" style="font-weight:bold; font-size:13px;">Anel Chroma</span>
+                                <input type="checkbox" id="eclipse-chroma-toggle" style="width:auto; margin:0;" onchange="window.toggleChroma(this.checked)">
+                            </div>
+
                             <div id="color-picker-container" style="display:none;">
-                                <label class="e-label">Ring Color</label>
+                                <label class="e-label">Cor do Anel</label>
                                 <input type="color" id="eclipse-ring-color" value="#7c3aed" onchange="window.setRingColor(this.value)">
                             </div>
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label">CUSTOM DRAW DELAY (MS)</label>
-                            <div style="font-size:11px; color:#666; margin-bottom:6px;">Overrides game limit. Lower = faster.</div>
-                            <input type="number" id="visual-draw-delay" class="e-input" placeholder="Default is 120" style="margin-bottom:0;">
+                            <label class="e-label">DELAY DE DESENHO (MS)</label>
+                            <input type="number" id="visual-draw-delay" class="e-input" placeholder="Padrão é 120" style="margin-bottom:0;">
                         </div>
                         <div class="e-setting-group">
-                            <label class="e-label" style="color:#666; margin-bottom:15px;">KEY BINDINGS</label>
+                            <label class="e-label" style="color:#666; margin-bottom:15px;">ATALHOS</label>
                             <div class="e-keybind-row">
-                                <span style="font-size:13px; font-weight:600; color:#eee;">Clip Recorder</span>
+                                <span style="font-size:13px; font-weight:600; color:#eee;">Gravador</span>
                                 <input type="text" class="e-keybind-input" id="bind-clip-input" value="R" readonly onclick="window.startRebind('clip', this)">
                             </div>
                         </div>
                     </div>
                     <div id="tab-skin-preview" class="e-tab-page">
-                        <h2>Asset Previews</h2>
+                        <h2>Previsão de Skins</h2>
                         <div class="e-preview-container">
-                            <div class="e-preview-box"><span class="e-preview-label">MAIN</span><div class="e-skin-circle"><img id="preview-main-img" src=""></div></div>
-                            <div class="e-preview-box"><span class="e-preview-label">DUAL</span><div class="e-skin-circle"><img id="preview-dual-img" src=""></div></div>
+                            <div class="e-preview-box"><span class="e-preview-label">PRINCIPAL</span><div class="e-skin-circle"><img id="preview-main-img" src=""></div></div>
+                            <div class="e-preview-box"><span class="e-preview-label">SECUNDÁRIO</span><div class="e-skin-circle"><img id="preview-dual-img" src=""></div></div>
                         </div>
                     </div>
-                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">APPLY & CLOSE</button>
+                    <button id="e-btn-activate" onclick="window.eclipseInjectSystem()">APLICAR E FECHAR</button>
                 </div>
             </div>
         </div>
     `;
-
-    // =================================================================
-    // 3. LOGIC & SYSTEM
-    // =================================================================
 
     window.forceOutlineCheck = () => {
         if (!window.game || !window.game.settings) return;
@@ -200,11 +242,14 @@
             const delayNum = parseInt(drawDelayVal);
             if (window.settings) window.settings.drawDelay = delayNum;
             localStorage.setItem('drawDelay', delayNum);
-            showToast(`Draw Delay set to ${delayNum}ms ⚡`);
+            showToast(`Delay definido para ${delayNum}ms ⚡`);
         }
 
         localStorage.setItem('eclipse_outline', window.eclipse_outlineType);
         localStorage.setItem('eclipse_ring_color', window.eclipse_ringColor);
+        localStorage.setItem('eclipse_chroma', window.eclipse_chromaMode);
+        localStorage.setItem('eclipse_dark_border', window.eclipse_darkBorder);
+
         window.forceOutlineCheck();
 
         if (window.game) {
@@ -214,18 +259,29 @@
             if (window.game.sendDualIdentity) window.game.sendDualIdentity();
         }
 
-        showToast("System Injected 💉");
+        document.body.style.backgroundColor = '#000000';
+        const cvs = document.querySelector('canvas');
+        if(cvs) { cvs.style.border = 'none'; cvs.style.outline = 'none'; }
+
+        showToast("Sistema Injetado 💉");
         const menu = document.getElementById('eclipse-main-wrap');
         if(menu) menu.remove();
     };
 
     window.toggleLines = (checked) => { window.eclipse_showLines = checked; };
+    window.toggleDarkBorder = (checked) => { window.eclipse_darkBorder = checked; };
+
+    window.toggleChroma = (checked) => {
+        window.eclipse_chromaMode = checked;
+        const picker = document.getElementById('color-picker-container');
+        if(picker) picker.style.display = (window.eclipse_outlineType === 'color' && !checked) ? 'block' : 'none';
+    };
 
     window.setOutlineType = (val) => {
         window.eclipse_outlineType = val;
         window.forceOutlineCheck();
         const picker = document.getElementById('color-picker-container');
-        if(picker) picker.style.display = (val === 'color') ? 'block' : 'none';
+        if(picker) picker.style.display = (val === 'color' && !window.eclipse_chromaMode) ? 'block' : 'none';
     };
 
     window.setRingColor = (val) => { window.eclipse_ringColor = val; };
@@ -275,9 +331,14 @@
 
             const savedOutline = localStorage.getItem('eclipse_outline') || 'original';
             const savedColor = localStorage.getItem('eclipse_ring_color') || '#7c3aed';
+            const savedChroma = localStorage.getItem('eclipse_chroma') === 'true';
+
+            const savedBorder = localStorage.getItem('eclipse_dark_border');
+            window.eclipse_darkBorder = (savedBorder === null) ? true : (savedBorder === 'true');
 
             window.eclipse_outlineType = savedOutline;
             window.eclipse_ringColor = savedColor;
+            window.eclipse_chromaMode = savedChroma;
 
             if(document.getElementById('eclipse-outline-select')) {
                 document.getElementById('eclipse-outline-select').value = savedOutline;
@@ -285,6 +346,12 @@
             }
             if(document.getElementById('eclipse-ring-color')) document.getElementById('eclipse-ring-color').value = savedColor;
             if(document.getElementById('eclipse-lines-toggle')) document.getElementById('eclipse-lines-toggle').checked = window.eclipse_showLines;
+            if(document.getElementById('eclipse-border-toggle')) document.getElementById('eclipse-border-toggle').checked = window.eclipse_darkBorder;
+
+            if(document.getElementById('eclipse-chroma-toggle')) {
+                document.getElementById('eclipse-chroma-toggle').checked = savedChroma;
+                window.toggleChroma(savedChroma);
+            }
 
             const bindInput = document.getElementById('bind-clip-input');
             if(bindInput) {
@@ -296,11 +363,6 @@
         }, 50);
     };
 
-    // =================================================================
-    // 4. RECORDER ENGINE (OPTIMIZED ORIGINAL BASE)
-    // =================================================================
-    
-    // Esta é a estrutura original que funcionava, apenas com os parâmetros de qualidade ajustados
     let recorders = [{ id: 0, rec: null, chunks: [], startTime: 0, timer: null }, { id: 1, rec: null, chunks: [], startTime: 0, timer: null }];
     let activeStream = null;
     let isProcessing = false;
@@ -317,7 +379,6 @@
         if (!canvas) { setTimeout(initRecorder, 1000); return; }
         try {
             activeStream = canvas.captureStream(30);
-            // Inicia os dois gravadores com 10s de desfasamento (Lógica Original)
             startRec(0);
             setTimeout(() => startRec(1), 10000);
         } catch (e) {
@@ -331,40 +392,25 @@
         const r = recorders[idx];
         r.chunks = [];
         r.startTime = Date.now();
-        
-        // OTIMIZAÇÃO: Usar o codec padrão (WebM/VP8) em vez de forçar VP9 (que causa lag)
         let mime = "video/webm";
-        
         try {
-            // OTIMIZAÇÃO: Bitrate reduzido de 4.5Mbps para 2.5Mbps (Suficiente e leve)
             r.rec = new MediaRecorder(activeStream, { mimeType: mime, videoBitsPerSecond: 2500000 });
-            
             r.rec.ondataavailable = e => { if (e.data.size > 0) r.chunks.push(e.data); };
-            
             r.rec.onstop = () => { if (!isProcessing) startRec(idx); };
-            
             r.rec.start(1000);
-            
-            // Ciclo de 20 segundos (Original)
             r.timer = setTimeout(() => { if (r.rec.state !== 'inactive' && !isProcessing) r.rec.stop(); }, 20000);
-            
         } catch (e) { console.error("Rec Error", e); }
     };
 
     window.triggerSave = () => {
-        if (isProcessing) return showToast("Saving...", true);
-        if (!recorders[0].rec) { initRecorder(); return showToast("Starting Engine...", true); }
-        
+        if (isProcessing) return showToast("A guardar...", true);
+        if (!recorders[0].rec) { initRecorder(); return showToast("A iniciar motor...", true); }
         isProcessing = true;
         const now = Date.now();
-        
-        // Lógica original para escolher o melhor clipe
         let idx = (now - recorders[0].startTime > now - recorders[1].startTime) ? 0 : 1;
         if (recorders[idx].chunks.length === 0) idx = idx === 0 ? 1 : 0;
-        
         const target = recorders[idx];
-        showToast("Clip Saved! 🎬");
-        
+        showToast("Clip Guardado! 🎬");
         target.rec.onstop = () => {
             const blob = new Blob(target.chunks, { type: "video/webm" });
             const url = URL.createObjectURL(blob);
@@ -373,24 +419,18 @@
             document.body.appendChild(a);
             a.click();
             setTimeout(() => { window.URL.revokeObjectURL(url); a.remove(); }, 1000);
-            
             isProcessing = false;
             startRec(idx);
         };
-        
         target.rec.stop();
         if(target.timer) clearTimeout(target.timer);
     };
-
-    // =================================================================
-    // 5. MISC LOGIC
-    // =================================================================
 
     let isRebinding = false;
     window.startRebind = (action, inputEl) => {
         if(isRebinding) return;
         isRebinding = true;
-        inputEl.value = "PRESS KEY..."; inputEl.classList.add('recording');
+        inputEl.value = "PRESSIONA TECLA..."; inputEl.classList.add('recording');
         const handler = (e) => {
             e.preventDefault(); e.stopPropagation();
             const isAlt = e.altKey; const isCtrl = e.ctrlKey; const isShift = e.shiftKey;
@@ -418,7 +458,7 @@
         const g = window.game; window.eclipseModeActive = false; spectateTargetId = null;
         if (g && eclipseSpectateTicker) { g.ticker.remove(eclipseSpectateTicker); eclipseSpectateTicker = null; }
         if (g && realCameraRefs) { g.camera.position = realCameraRefs.position; g.camera.scale = realCameraRefs.scale; realCameraRefs = null; }
-        const btn = document.getElementById('eclipse-stop-spectate'); if (btn) btn.remove(); showToast("Camera Reset");
+        const btn = document.getElementById('eclipse-stop-spectate'); if (btn) btn.remove(); showToast("Câmara Reposta");
     };
     window.eclipseAction = async (type) => {
         if (targetPid === null) return;
@@ -427,6 +467,16 @@
         const pName = pManager?.name || "Player";
         const skinUrl = getRealSkinUrl(targetPid);
         switch(type) {
+            case 'target':
+                if (window.eclipse_targetPid === targetPid) {
+                    window.eclipse_targetPid = null;
+                    showToast("Alvo Removido");
+                    document.querySelectorAll('.eclipse-target-text').forEach(el => el.classList.remove('eclipse-target-text'));
+                } else {
+                    window.eclipse_targetPid = targetPid;
+                    showToast(`Alvo: ${pName} 🎯`);
+                }
+                break;
             case 'spectate': {
                 if (window.eclipseModeActive) window.stopSpectate();
                 window.eclipseModeActive = true;
@@ -436,7 +486,7 @@
                 g.camera.scale = decoyCamera.scale;
                 const btn = document.createElement('button');
                 btn.id = 'eclipse-stop-spectate';
-                btn.innerHTML = `❌ STOP VIEW (${pName})`;
+                btn.innerHTML = `❌ PARAR VISÃO (${pName})`;
                 btn.style.cssText = "position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:1000002; padding:12px 24px; background:#ef4444; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Outfit';";
                 btn.onclick = window.stopSpectate;
                 document.body.appendChild(btn);
@@ -461,11 +511,11 @@
                 if (g.ticker) g.ticker.add(eclipseSpectateTicker);
                 break;
             }
-            case 'block': showToast("Profile/Block Triggered ⚙️"); break;
-            case 'hide': window.hiddenSkinPids.add(targetPid); if(skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Hidden"); break;
-            case 'show': window.hiddenSkinPids.delete(targetPid); showToast("Skin Revealed"); break;
-            case 'yoink': if(skinUrl) { let s=[]; try{s=JSON.parse(localStorage.getItem('skins')||'[]')}catch(e){} if(!s.includes(skinUrl)){s.unshift(skinUrl); localStorage.setItem('skins',JSON.stringify(s)); showToast("Skin Saved! 💎");} } else showToast("No Skin ❌", true); break;
-            case 'copy': if(skinUrl) { navigator.clipboard.writeText(skinUrl); showToast("Copied 🔗"); } break;
+            case 'block': showToast("Bloquear/Perfil ⚙️"); break;
+            case 'hide': window.hiddenSkinPids.add(targetPid); if(skinUrl) window.eclipseSkinBackups.set(targetPid, skinUrl); showToast("Skin Oculta"); break;
+            case 'show': window.hiddenSkinPids.delete(targetPid); showToast("Skin Visível"); break;
+            case 'yoink': if(skinUrl) { let s=[]; try{s=JSON.parse(localStorage.getItem('skins')||'[]')}catch(e){} if(!s.includes(skinUrl)){s.unshift(skinUrl); localStorage.setItem('skins',JSON.stringify(s)); showToast("Skin Guardada! 💎");} } else showToast("Sem Skin ❌", true); break;
+            case 'copy': if(skinUrl) { navigator.clipboard.writeText(skinUrl); showToast("Copiado 🔗"); } break;
         }
     };
 
@@ -482,6 +532,8 @@
 
     const init = () => {
         if(localStorage.getItem('eclipse_outline')) window.eclipse_outlineType = localStorage.getItem('eclipse_outline');
+        if(localStorage.getItem('eclipse_chroma') === 'true') window.eclipse_chromaMode = true;
+        if(localStorage.getItem('eclipse_dark_border') === 'true') window.eclipse_darkBorder = true;
 
         contextMenu = document.createElement('div'); contextMenu.id = 'eclipse-ctx-menu';
         contextMenu.style.cssText = "position:fixed; z-index:1000001; background:rgba(5,5,7,0.95); backdrop-filter:blur(10px); border:1px solid rgba(124,58,237,0.3); border-radius:12px; width:220px; display:none; font-family:'Outfit', sans-serif; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.8);";
@@ -501,27 +553,28 @@
             const found = g.nodelist.find(n => n.pid !== g.playerId && Math.sqrt((n.x-g.mouse.x)**2 + (n.y-g.mouse.y)**2) < (n.size+80));
             if (found) {
                 e.preventDefault(); targetPid = found.pid;
-                const pName = g.playerManager?.players?.[targetPid]?.name || "Unknown";
+                const pName = g.playerManager?.players?.[targetPid]?.name || "Desconhecido";
                 const isHidden = window.hiddenSkinPids.has(targetPid);
+                const isTarget = (window.eclipse_targetPid === targetPid);
                 contextMenu.innerHTML = `
                     <div style="background:rgba(124,58,237,0.2); color:#a78bfa; padding:12px; font-weight:800; text-align:center; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.05); text-transform:uppercase;">${pName}</div>
                     <div style="padding:6px;">
-                        <div class="e-ctx-item" onclick="window.eclipseAction('spectate')"><span>🔭</span> Spectate</div>
-                        <div class="e-ctx-item" onclick="window.eclipseAction('block')"><span>⚙️</span> Block/Profile</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('target')"><span>🎯</span> ${isTarget ? 'Remover Alvo' : 'Marcar Alvo'}</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('spectate')"><span>🔭</span> Observar</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('block')"><span>⚙️</span> Bloquear/Perfil</div>
                         <div style="height:1px; background:rgba(255,255,255,0.1); margin:4px 10px;"></div>
                         ${isHidden
-                            ? `<div class="e-ctx-item" onclick="window.eclipseAction('show')"><span style="color:#4ade80">✨</span> Show Skin</div>`
-                            : `<div class="e-ctx-item" onclick="window.eclipseAction('hide')"><span style="color:#f87171">👁️</span> Hide Skin</div>`
+                            ? `<div class="e-ctx-item" onclick="window.eclipseAction('show')"><span style="color:#4ade80">✨</span> Mostrar Skin</div>`
+                            : `<div class="e-ctx-item" onclick="window.eclipseAction('hide')"><span style="color:#f87171">👁️</span> Ocultar Skin</div>`
                         }
-                        <div class="e-ctx-item" onclick="window.eclipseAction('yoink')"><span>💎</span> Yoink Skin</div>
-                        <div class="e-ctx-item" onclick="window.eclipseAction('copy')"><span>🔗</span> Copy URL</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('yoink')"><span>💎</span> Roubar Skin</div>
+                        <div class="e-ctx-item" onclick="window.eclipseAction('copy')"><span>🔗</span> Copiar URL</div>
                     </div>`;
                 contextMenu.style.display = 'block'; contextMenu.style.left = e.clientX + 'px'; contextMenu.style.top = e.clientY + 'px';
             } else { contextMenu.style.display = 'none'; }
         });
         window.addEventListener('click', (e) => { if(contextMenu && !contextMenu.contains(e.target)) contextMenu.style.display = 'none'; });
 
-        // DRAWING ENGINE
         let canvas = document.createElement('canvas'); canvas.style.cssText = "position:fixed; inset:0; pointer-events:none; z-index:9990;"; document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
 
@@ -539,11 +592,122 @@
 
                 const activeId = g.activePid || g.playerId;
                 const mouse = g.rawMouse || {x:innerWidth/2, y:innerHeight/2};
-
                 const cam = (window.eclipseModeActive && realCameraRefs) ? realCameraRefs : g.camera;
                 const s = cam.scale.x;
-
                 const sortedAllNodes = [...g.nodelist].sort((a, b) => a.size - b.size);
+
+                let currentColor;
+                if (window.eclipse_chromaMode) {
+                    const hue = Math.floor((Date.now() / 10) % 360);
+                    currentColor = `hsl(${hue}, 100%, 50%)`;
+                } else {
+                    currentColor = window.eclipse_ringColor || '#7c3aed';
+                }
+
+                if (window.eclipse_darkBorder && g.border) {
+                    ctx.save();
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = "white";
+                    ctx.shadowBlur = 15;
+                    ctx.lineJoin = "round";
+
+                    if (g.border.isCircle) {
+                         const centerX = (g.border.x || 0 - cam.position.x) * s + (innerWidth/2);
+                         const centerY = (g.border.y || 0 - cam.position.y) * s + (innerHeight/2);
+                         const radius = (g.border.radius) * s;
+                         ctx.beginPath();
+                         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                         ctx.stroke();
+                    } else {
+                        let minX, minY, width, height;
+                        if (g.border.minx !== undefined) {
+                            minX = g.border.minx; minY = g.border.miny;
+                            width = g.border.maxx - g.border.minx; height = g.border.maxy - g.border.miny;
+                        } else {
+                            width = g.border.width; height = g.border.height;
+                            minX = -width / 2; minY = -height / 2;
+                        }
+                        const sx = (minX - cam.position.x) * s + (innerWidth/2);
+                        const sy = (minY - cam.position.y) * s + (innerHeight/2);
+                        const sw = width * s;
+                        const sh = height * s;
+                        ctx.strokeRect(sx, sy, sw, sh);
+                    }
+                    ctx.restore();
+                }
+
+                if (window.eclipse_targetPid !== null) {
+                    const targetNodes = g.nodelist.filter(n => n.pid === window.eclipse_targetPid);
+                    const playerNodes = g.nodelist.filter(n => n.pid === g.playerId);
+
+                    if (targetNodes.length > 0 && playerNodes.length > 0) {
+                        let tx = 0, ty = 0, tCount = 0;
+                        targetNodes.forEach(n => { tx += n.x; ty += n.y; tCount++; });
+                        const avgTx = tx / tCount;
+                        const avgTy = ty / tCount;
+
+                        let px = 0, py = 0, pCount = 0, maxSize = 0;
+                        playerNodes.forEach(n => { px += n.x; py += n.y; pCount++; if(n.size > maxSize) maxSize = n.size; });
+                        const avgPx = px / pCount;
+                        const avgPy = py / pCount;
+
+                        const dx = avgTx - avgPx;
+                        const dy = avgTy - avgPy;
+                        const distGameUnits = Math.sqrt(dx*dx + dy*dy);
+                        const touchDistance = (maxSize + (targetNodes[0].size || 50)) + 200;
+
+                        if (distGameUnits > touchDistance) {
+                            const screenPx = (avgPx - cam.position.x) * s + (innerWidth/2);
+                            const screenPy = (avgPy - cam.position.y) * s + (innerHeight/2);
+                            const angle = Math.atan2(dy, dx);
+
+                            let orbitRadius = (maxSize * s) + 60;
+                            if (orbitRadius < 40) orbitRadius = 40;
+
+                            ctx.save();
+                            ctx.translate(screenPx, screenPy);
+                            ctx.rotate(angle);
+                            ctx.translate(orbitRadius, 0);
+                            ctx.rotate(Math.PI/2);
+                            ctx.fillStyle = "red";
+                            ctx.beginPath();
+                            ctx.moveTo(0, -15);
+                            ctx.lineTo(10, 10);
+                            ctx.lineTo(0, 5);
+                            ctx.lineTo(-10, 10);
+                            ctx.fill();
+                            ctx.restore();
+                        }
+
+                        if (cachedMiniCanvas && g.border) {
+                            const rect = cachedMiniCanvas.getBoundingClientRect();
+                            let minX, minY, mapW, mapH;
+                            if (g.border.minx !== undefined) {
+                                minX = g.border.minx; minY = g.border.miny;
+                                mapW = g.border.maxx - g.border.minx; mapH = g.border.maxy - g.border.miny;
+                            } else {
+                                mapW = g.border.width; mapH = g.border.height;
+                                minX = -mapW / 2; minY = -mapH / 2;
+                            }
+                            const relX = (avgTx - minX) / mapW;
+                            const relY = (avgTy - minY) / mapH;
+
+                            if (relX >= 0 && relX <= 1 && relY >= 0 && relY <= 1) {
+                                const miniX = rect.left + relX * rect.width;
+                                const miniY = rect.top + relY * rect.height;
+                                ctx.save();
+                                ctx.fillStyle = "#ff0000";
+                                ctx.shadowColor = "red";
+                                ctx.shadowBlur = 10;
+                                ctx.beginPath();
+                                ctx.arc(miniX, miniY, 4, 0, Math.PI * 2);
+                                ctx.fill();
+                                ctx.restore();
+                            }
+                        }
+                    }
+                }
 
                 for(let n of sortedAllNodes) {
                     if(n.pid === activeId && !n.isDead) {
@@ -559,13 +723,9 @@
                         if(window.eclipse_outlineType === 'color') {
                             ctx.save();
                             ctx.beginPath();
-                            ctx.strokeStyle = window.eclipse_ringColor || '#7c3aed';
-
-                            // Espessura baseada no zoom para manter consistência
+                            ctx.strokeStyle = currentColor;
                             const thickness = Math.max(0.5, 4.5 * s);
                             ctx.lineWidth = thickness;
-
-                            // Desenha ligeiramente "dentro" para evitar serrilhado externo
                             ctx.arc(sx, sy, sr - (thickness * 0.5), 0, Math.PI * 2);
                             ctx.stroke();
 
@@ -588,7 +748,6 @@
                              if(ARROW_ASSET.complete) {
                                 let arrowW = Math.max(5, Math.min(50, sr * 0.6));
                                 const offset = sr + (arrowW * 0.4);
-
                                 ctx.save();
                                 ctx.translate(sx, sy - offset);
                                 ctx.drawImage(ARROW_ASSET, -arrowW/2, -arrowW/2, arrowW, arrowW);
@@ -602,8 +761,54 @@
         };
         draw();
 
-        // Inicia o sistema
         initRecorder();
+
+        setInterval(() => {
+            if (window.game) {
+                if (window.game.renderer && window.game.renderer.backgroundColor !== 0x000000) {
+                    window.game.renderer.backgroundColor = 0x000000;
+                }
+                if (window.game.settings && window.game.settings.showBackgroundImage) {
+                    window.game.settings.showBackgroundImage = false;
+                }
+
+                const allCanvas = document.querySelectorAll('canvas');
+                cachedMiniCanvas = null;
+                for(let c of allCanvas) {
+                    if (c.width < window.innerWidth * 0.4 && c.height < window.innerHeight * 0.4 && c.style.display !== 'none') {
+                        cachedMiniCanvas = c;
+                        break;
+                    }
+                }
+
+                if (window.eclipse_targetPid && window.game.playerManager && window.game.playerManager.players[window.eclipse_targetPid]) {
+                    const targetName = window.game.playerManager.players[window.eclipse_targetPid].name;
+
+                    const currentHighlights = document.querySelectorAll('.eclipse-target-text');
+                    currentHighlights.forEach(el => {
+                        if (el.textContent.trim() !== targetName) el.classList.remove('eclipse-target-text');
+                    });
+
+                    const candidates = document.querySelectorAll('div, span, td, p, button, li, b, strong, h1, h2, h3, h4');
+                    for (let el of candidates) {
+                        if (el.textContent && el.textContent.trim() === targetName) {
+                            if (!el.classList.contains('eclipse-target-text')) {
+                                el.classList.add('eclipse-target-text');
+                            }
+                        }
+                    }
+                } else {
+                    document.querySelectorAll('.eclipse-target-text').forEach(el => el.classList.remove('eclipse-target-text'));
+                }
+            }
+
+            const allElements = document.querySelectorAll('div, span, p');
+            for(let el of allElements) {
+                if (el.textContent && (el.textContent.includes('Merge in') || el.textContent.includes('Recombine'))) {
+                    el.style.display = 'none';
+                }
+            }
+        }, 500);
 
         const trig = document.createElement('div');
         trig.style.cssText = "position:fixed; top:20px; right:20px; z-index:1000000; width:45px; height:45px; background:rgba(124,58,237,0.5); border:1px solid #7c3aed; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:0.3s;";
@@ -616,7 +821,7 @@
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         init();
     } else {
-        window.addEventListener('DOMContentLoaded', init);
-        window.addEventListener('load', init);
+        document.addEventListener('DOMContentLoaded', init);
     }
+
 })();
